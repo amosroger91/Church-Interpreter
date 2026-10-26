@@ -1,18 +1,33 @@
-// Speaks the Spanish translation with the device's built-in voices
-// (speechSynthesis). Installed OS voices work offline. If the voice falls
-// behind the speaker, queued text is merged and read a little faster so
-// the interpretation never drifts far behind.
+// Speaks the translation with the device's built-in voices (speechSynthesis).
+// Installed OS voices work offline. If the voice falls behind the speaker,
+// queued text is merged and read a little faster so the interpretation
+// never drifts far behind.
 
-export function listSpanishVoices() {
+// Regional voices to prefer: Latin American / US Spanish, and US English.
+const PREFERRED = { es: ['es-us', 'es-mx', 'es-419'], en: ['en-us'] };
+const DEFAULT_LOCALE = { es: 'es-MX', en: 'en-US' };
+
+/** Installed voices for a language ('es' or 'en'), best first. */
+export function listVoices(lang = 'es') {
   if (typeof speechSynthesis === 'undefined') return [];
+  const rank = (v) => {
+    const i = PREFERRED[lang].indexOf(v.lang?.toLowerCase().replace('_', '-'));
+    return i === -1 ? PREFERRED[lang].length : i;
+  };
   return speechSynthesis
     .getVoices()
-    .filter((v) => v.lang?.toLowerCase().startsWith('es'))
-    .sort((a, b) => Number(b.localService) - Number(a.localService) || a.name.localeCompare(b.name));
+    .filter((v) => v.lang?.toLowerCase().startsWith(lang))
+    .sort(
+      (a, b) =>
+        Number(b.localService) - Number(a.localService) || rank(a) - rank(b) || a.name.localeCompare(b.name),
+    );
 }
+
+export const listSpanishVoices = () => listVoices('es');
 
 export class Speaker {
   constructor() {
+    this.lang = 'es';
     this.enabled = true;
     this.voiceURI = null;
     this.rate = 1.1;
@@ -41,7 +56,7 @@ export class Speaker {
     this.unlocked = true;
     const u = new SpeechSynthesisUtterance(' ');
     u.volume = 0;
-    u.lang = 'es-ES';
+    u.lang = DEFAULT_LOCALE[this.lang];
     speechSynthesis.speak(u);
     // Chrome pauses speech after a period of inactivity; make sure it runs.
     speechSynthesis.resume();
@@ -62,10 +77,10 @@ export class Speaker {
     const backlog = text.split(/\s+/).length;
     this.queue = [];
     const u = new SpeechSynthesisUtterance(text);
-    const voice = speechSynthesis.getVoices().find((v) => v.voiceURI === this.voiceURI)
-      || listSpanishVoices()[0];
+    const voice =
+      listVoices(this.lang).find((v) => v.voiceURI === this.voiceURI) || listVoices(this.lang)[0];
     if (voice) u.voice = voice;
-    u.lang = voice?.lang || 'es-ES';
+    u.lang = voice?.lang || DEFAULT_LOCALE[this.lang];
     // Speed up a bit when there's a lot to catch up on.
     const boost = backlog > 25 ? 0.35 : backlog > 14 ? 0.2 : 0;
     u.rate = Math.min(2, this.rate + boost);

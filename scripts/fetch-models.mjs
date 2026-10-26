@@ -10,13 +10,13 @@ import { fileURLToPath } from 'node:url';
 
 const outDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'public', 'models');
 
-const VOSK = 'vosk-model-small-en-us-0.15';
-const VOSK_SOURCES = [
-  `https://ccoreilly.github.io/vosk-browser/models/${VOSK}.tar.gz`,
+const VOSK_MODELS = ['vosk-model-small-en-us-0.15', 'vosk-model-small-es-0.3'];
+const voskSources = (name) => [
+  `https://ccoreilly.github.io/vosk-browser/models/${name}.tar.gz`,
   // Official zip; repackaged as .tar.gz, the format vosk-browser expects.
-  `https://alphacephei.com/vosk/models/${VOSK}.zip`,
+  `https://alphacephei.com/vosk/models/${name}.zip`,
 ];
-const TRANSLATION = 'Xenova/opus-mt-en-es';
+const TRANSLATION_MODELS = ['Xenova/opus-mt-en-es', 'Xenova/opus-mt-es-en'];
 const OPTIONAL = new Set(['generation_config.json']);
 const TRANSLATION_FILES = [
   'config.json',
@@ -35,10 +35,10 @@ async function download(url, dest) {
   console.log('  ✓', url);
 }
 
-async function fetchVosk() {
+async function fetchVosk(VOSK) {
   const dest = join(outDir, `${VOSK}.tar.gz`);
-  if (existsSync(dest)) return console.log('  • speech model already present');
-  for (const url of VOSK_SOURCES) {
+  if (existsSync(dest)) return console.log(`  • ${VOSK} already present`);
+  for (const url of voskSources(VOSK)) {
     try {
       if (url.endsWith('.tar.gz')) {
         await download(url, dest);
@@ -57,7 +57,7 @@ async function fetchVosk() {
   throw new Error('Could not download the speech model');
 }
 
-async function fetchTranslation() {
+async function fetchTranslation(TRANSLATION) {
   for (const f of TRANSLATION_FILES) {
     const dest = join(outDir, TRANSLATION, f);
     if (existsSync(dest)) continue;
@@ -70,8 +70,8 @@ async function fetchTranslation() {
   }
 }
 
-console.log('Speech model (Vosk):');
-await fetchVosk();
-console.log('Translation model (OPUS-MT en→es):');
-await fetchTranslation();
+console.log('Speech models (Vosk):');
+for (const m of VOSK_MODELS) await fetchVosk(m);
+console.log('Translation models (OPUS-MT):');
+for (const m of TRANSLATION_MODELS) await fetchTranslation(m);
 console.log('Models saved to', outDir);

@@ -70,7 +70,7 @@ describe('SourceTracker with the liturgy matcher', () => {
     });
     matcher = new LiturgyMatcher({
       onStart: ({ start }) => t.pause(start),
-      onLine: ({ es }) => lines.push(es),
+      onLine: ({ text }) => lines.push(text),
       onEnd: ({ resumeAt }) => t.resume(resumeAt),
     });
     const words = 'please stand as we pray our father who art in heaven hallowed be thy name amen now open your bibles'.split(' ');

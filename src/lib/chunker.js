@@ -14,6 +14,10 @@ export const BOUNDARY_WORDS = new Set([
   'whose', 'when', 'where', 'while', 'if', 'then', 'for', 'until', 'unless',
   'although', 'though', 'since', 'as', 'after', 'before', 'yet', 'nor',
   'therefore', 'amen',
+  // Spanish
+  'y', 'e', 'pero', 'mas', 'o', 'u', 'porque', 'pues', 'que', 'cuando',
+  'donde', 'mientras', 'si', 'entonces', 'aunque', 'sino', 'para', 'hasta',
+  'como', 'amén',
 ]);
 
 export function splitWords(text) {

@@ -2,10 +2,11 @@
 // one request runs at a time, and requests that pile up meanwhile are
 // combined (fragments are merged; for a sentence being re-translated, only
 // the newest version is kept) instead of queueing up.
-import { MODELS } from './config.js';
+import { DIRECTIONS } from './languages.js';
 
 export class Translator {
-  constructor({ onResult, onStatus, simulOptions } = {}) {
+  constructor({ direction = 'en-es', onResult, onStatus, simulOptions } = {}) {
+    this.direction = direction;
     this.onResult = onResult || (() => {});
     this.onStatus = onStatus || (() => {});
     this.simulOptions = simulOptions || {};
@@ -51,7 +52,8 @@ export class Translator {
       this.worker.postMessage({
         type: 'load',
         baseUrl: new URL(import.meta.env.BASE_URL, location.href).href,
-        modelId: MODELS.translation.id,
+        modelId: DIRECTIONS[this.direction].translationModel,
+        direction: this.direction,
         simulOptions: this.simulOptions,
       });
     });
@@ -71,14 +73,14 @@ export class Translator {
    * Sentence-aware mode: the English of segment `segId` so far. Only the
    * newest non-final version of a segment is kept while waiting.
    */
-  step({ segId, text, final, start }) {
+  step({ segId, text, final, start, english = text }) {
     if (final) {
       this.pending = this.pending.filter((j) => !(j.kind === 'step' && j.segId === segId && !j.final));
-      this.pending.push({ kind: 'step', segId, text, final, start });
+      this.pending.push({ kind: 'step', segId, text, final, start, english });
     } else {
       const queued = this.pending.find((j) => j.kind === 'step' && j.segId === segId && !j.final);
-      if (queued) queued.text = text;
-      else this.pending.push({ kind: 'step', segId, text, final, start });
+      if (queued) Object.assign(queued, { text, english });
+      else this.pending.push({ kind: 'step', segId, text, final, start, english });
     }
     this._pump();
   }
@@ -99,7 +101,7 @@ export class Translator {
     let request;
     if (job.kind === 'step') {
       this.pending.shift();
-      this.inflight = { kind: 'step', segId: job.segId, final: job.final, start: job.start, english: job.text };
+      this.inflight = { kind: 'step', segId: job.segId, final: job.final, start: job.start, english: job.english };
       request = { type: 'step', segId: job.segId, text: job.text, final: job.final };
     } else {
       // Merge all fragments waiting at the front of the queue.
@@ -111,7 +113,7 @@ export class Translator {
         kind: 'fragment',
         start: Boolean(batch[0].meta.start),
         final: batch.some((b) => b.meta.final),
-        english: text,
+        english: batch.map((b) => b.meta.english ?? b.text).filter(Boolean).join(' '),
         merged: batch.length,
       };
       if (!text) {

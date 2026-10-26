@@ -1,14 +1,20 @@
 name: Translation quality benchmark
 
-# Runs the interpretation benchmark (eval/eval.mjs) against the real models.
+# Runs the interpretation benchmark (eval/eval.mjs) against the real models,
+# in both directions.
 on:
   workflow_dispatch:
-  pull_request:
+  push:
+    branches: [main]
     paths: ['src/lib/**', 'eval/**']
 
 jobs:
   eval:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        direction: [en-es, es-en]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -22,5 +28,10 @@ jobs:
           path: public/models
           key: models-${{ hashFiles('scripts/fetch-models.mjs') }}
       - run: npm run fetch-models
-      - run: npm run eval | tee eval-results.txt
-      - run: cat eval-results.txt >> "$GITHUB_STEP_SUMMARY"
+      - name: Benchmark ${{ matrix.direction }}
+        run: node eval/eval.mjs --dir=${{ matrix.direction }} --only=offline,fragment-balanced,simul-balanced --verbose 2>&1 | grep -v WARNING | tee eval-results.txt
+      - run: |
+          echo '## ${{ matrix.direction }}' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          tail -8 eval-results.txt >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"

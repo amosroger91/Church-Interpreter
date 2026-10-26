@@ -1,22 +1,24 @@
 import { useEffect, useRef, useState } from 'react';
 import { ENGINES, MODES, PACES, useInterpreter } from './useInterpreter.js';
-import { listSpanishVoices } from './lib/speaker.js';
+import { listVoices } from './lib/speaker.js';
 import { LANGUAGES, translator } from './i18n.js';
 
 const DEFAULTS = {
   // The interface is Spanish unless someone picks English with the switch.
   uiLang: 'es',
   uiLangChosen: false,
+  // Who is speaking: English speaker translated to Spanish, or the reverse.
+  direction: 'en-es',
   engine: 'vosk',
   mode: 'simul',
   liturgy: true,
   pace: 'balanced',
   speak: true,
-  voiceURI: '',
+  voices: { es: '', en: '' },
   rate: 1.1,
   fontSize: 44,
   deviceId: '',
-  showEnglish: true,
+  showSource: true,
 };
 
 function loadSettings() {
@@ -24,6 +26,11 @@ function loadSettings() {
     const saved = JSON.parse(localStorage.getItem('interpreter-settings') || '{}');
     // Earlier versions saved an auto-detected language; only keep a choice.
     if (!saved.uiLangChosen) delete saved.uiLang;
+    // Older versions: a single (Spanish) voice and "show English".
+    if (saved.voiceURI !== undefined) saved.voices = { es: saved.voiceURI, en: '' };
+    if (saved.showEnglish !== undefined) saved.showSource = saved.showEnglish;
+    delete saved.voiceURI;
+    delete saved.showEnglish;
     return { ...DEFAULTS, ...saved };
   } catch {
     return DEFAULTS;
@@ -51,14 +58,15 @@ function useWakeLock(active) {
   }, [active]);
 }
 
-function useVoices() {
-  const [voices, setVoices] = useState(listSpanishVoices);
+function useVoices(lang) {
+  const [voices, setVoices] = useState(() => listVoices(lang));
   useEffect(() => {
     if (typeof speechSynthesis === 'undefined') return undefined;
-    const update = () => setVoices(listSpanishVoices());
+    const update = () => setVoices(listVoices(lang));
+    update();
     speechSynthesis.addEventListener('voiceschanged', update);
     return () => speechSynthesis.removeEventListener('voiceschanged', update);
-  }, []);
+  }, [lang]);
   return voices;
 }
 
@@ -88,7 +96,7 @@ function ModelBadge({ t, label, state, progress }) {
   );
 }
 
-function Captions({ t, lines, live, fontSize, showEnglish, big }) {
+function Captions({ t, lines, live, fontSize, showSource, sourceLang, big }) {
   const endRef = useRef(null);
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: 'end' });
@@ -101,15 +109,19 @@ function Captions({ t, lines, live, fontSize, showEnglish, big }) {
       )}
       {visible.map((l, i) => (
         <div key={l.id} className={`line ${i === visible.length - 1 ? 'line-current' : ''} ${l.liturgy ? 'line-liturgy' : ''}`}>
-          <p className="es" lang="es">
-            {l.es}
+          <p className="out" lang={l.lang}>
+            {l.out}
             {l.tentative && !l.done && <span className="tentative"> {l.tentative}</span>}
           </p>
-          {showEnglish && !big && <p className="en" lang="en">{l.en}</p>}
+          {showSource && !big && (
+            <p className="src" lang={l.liturgy ? undefined : sourceLang}>
+              {l.src}
+            </p>
+          )}
         </div>
       ))}
-      {showEnglish && (live.committed || live.pending) && (
-        <p className="live-en" lang="en">
+      {showSource && (live.committed || live.pending) && (
+        <p className="live-src" lang={sourceLang}>
           <span>{live.committed}</span> <span className="pending">{live.pending}</span>
         </p>
       )}
@@ -156,7 +168,7 @@ export default function App() {
   }, []);
 
   const downloadFailed = it.speechModel === 'error' || it.translationModel.state === 'error';
-  const voices = useVoices();
+  const voices = useVoices(it.to);
   const mics = useMicrophones(it.status);
   const listening = it.status === 'listening';
   useWakeLock(listening);
@@ -179,7 +191,7 @@ export default function App() {
   if (display) {
     return (
       <div className="display" onDoubleClick={closeDisplay}>
-        <Captions t={t} lines={it.lines} live={it.live} fontSize={settings.fontSize * 1.4} showEnglish={false} big />
+        <Captions t={t} lines={it.lines} live={it.live} fontSize={settings.fontSize * 1.4} showSource={false} big />
         <button className="display-exit" onClick={closeDisplay} aria-label={t('exitDisplay')}>
           ✕
         </button>
@@ -218,6 +230,20 @@ export default function App() {
         </div>
       </header>
 
+      <section className="direction" role="group" aria-label={t('direction')}>
+        {['en-es', 'es-en'].map((d) => (
+          <button
+            key={d}
+            className={it.direction === d ? 'active' : ''}
+            aria-pressed={it.direction === d}
+            disabled={listening || it.status === 'loading'}
+            onClick={() => set({ direction: d })}
+          >
+            {t(d === 'en-es' ? 'dirEnEs' : 'dirEsEn')}
+          </button>
+        ))}
+      </section>
+
       <section className="controls">
         <button
           className={`primary ${listening ? 'stop' : ''}`}
@@ -255,7 +281,14 @@ export default function App() {
         </div>
       )}
 
-      <Captions t={t} lines={it.lines} live={it.live} fontSize={settings.fontSize} showEnglish={settings.showEnglish} />
+      <Captions
+        t={t}
+        lines={it.lines}
+        live={it.live}
+        fontSize={settings.fontSize}
+        showSource={settings.showSource}
+        sourceLang={it.from}
+      />
 
       <form
         className="test"
@@ -268,7 +301,7 @@ export default function App() {
         <input
           value={testText}
           onChange={(e) => setTestText(e.target.value)}
-          placeholder={t('testPlaceholder')}
+          placeholder={t(it.from === 'en' ? 'testPlaceholder' : 'testPlaceholderEs')}
           aria-label={t('testLabel')}
         />
         <button type="submit">{t('send')}</button>
@@ -329,8 +362,11 @@ export default function App() {
             {t('speakAloud')}
           </label>
           <label>
-            {t('voice')}
-            <select value={settings.voiceURI} onChange={(e) => set({ voiceURI: e.target.value })}>
+            {t(it.to === 'es' ? 'voiceEs' : 'voiceEn')}
+            <select
+              value={settings.voices?.[it.to] || ''}
+              onChange={(e) => set({ voices: { ...settings.voices, [it.to]: e.target.value } })}
+            >
               <option value="">{t('automatic')}</option>
               {voices.map((v) => (
                 <option key={v.voiceURI} value={v.voiceURI}>
@@ -364,10 +400,10 @@ export default function App() {
           <label className="check">
             <input
               type="checkbox"
-              checked={settings.showEnglish}
-              onChange={(e) => set({ showEnglish: e.target.checked })}
+              checked={settings.showSource}
+              onChange={(e) => set({ showSource: e.target.checked })}
             />
-            {t('showEnglish')}
+            {t('showSource')}
           </label>
         </div>
         <p className="stats">

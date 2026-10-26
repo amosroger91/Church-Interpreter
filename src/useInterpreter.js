@@ -5,7 +5,7 @@ import { LiturgyMatcher } from './lib/liturgy.js';
 import { SIMUL_PACES } from './lib/simul.js';
 import { Translator } from './lib/translator.js';
 import { Speaker } from './lib/speaker.js';
-import { prepareEnglish, tidySpanish } from './lib/text.js';
+import { DIRECTIONS, prepareSource, tidyTarget } from './lib/languages.js';
 import { VoskEngine } from './lib/asr/vosk.js';
 import { WebSpeechEngine } from './lib/asr/webSpeech.js';
 
@@ -22,7 +22,7 @@ export const PACES = {
   balanced: { minWords: 3, maxWords: 7, maxWaitMs: 1200 },
 };
 
-// How the English is fed to the translator (labels are in src/i18n.js).
+// How recognized speech is fed to the translator (labels are in src/i18n.js).
 export const MODES = { simul: true, fragment: true };
 
 const MAX_LINES = 200;
@@ -34,9 +34,14 @@ function trimLines(lines) {
 export function useInterpreter(settings) {
   const [status, setStatus] = useState('idle'); // idle | loading | listening
   const [error, setError] = useState(null);
-  const [speechModel, setSpeechModel] = useState('idle'); // idle | loading | ready | error
-  const [translationModel, setTranslationModel] = useState({ state: 'idle' });
-  const [lines, setLines] = useState([]); // [{ id, es, en, done }]
+  const direction = DIRECTIONS[settings.direction] ? settings.direction : 'en-es';
+  const { from, to } = DIRECTIONS[direction];
+  // Model status per spoken language / per direction: idle | loading | ready | error
+  const [speechModels, setSpeechModels] = useState({});
+  const [translationModels, setTranslationModels] = useState({});
+  const speechModel = speechModels[from] || 'idle';
+  const translationModel = translationModels[direction] || { state: 'idle' };
+  const [lines, setLines] = useState([]); // [{ id, out, src, done }]
   const [live, setLive] = useState({ committed: '', pending: '' });
   const [level, setLevel] = useState(0);
   const [stats, setStats] = useState({ ms: 0, merged: 1 });
@@ -46,29 +51,34 @@ export function useInterpreter(settings) {
   const committedRef = useRef('');
   const lineIdRef = useRef(0);
 
+  const voiceURI = settings.voices?.[to] || '';
   useEffect(() => {
+    speaker.lang = to;
     speaker.enabled = settings.speak;
-    speaker.voiceURI = settings.voiceURI;
+    speaker.voiceURI = voiceURI;
     speaker.rate = settings.rate;
     if (!settings.speak) speaker.stop();
-  }, [speaker, settings.speak, settings.voiceURI, settings.rate]);
+  }, [speaker, to, settings.speak, voiceURI, settings.rate]);
 
-  const translator = useMemo(
-    () =>
-      new Translator({
-        onStatus: (s) => setTranslationModel(s),
+  // One translator (and model) per direction, created when first needed.
+  const translatorsRef = useRef({});
+  const translator = useMemo(() => {
+    if (!translatorsRef.current[direction]) {
+      translatorsRef.current[direction] = new Translator({
+        direction,
+        onStatus: (s) => setTranslationModels((m) => ({ ...m, [direction]: s })),
         onResult: (r) => {
           setStats({ ms: r.ms, merged: r.merged });
           if (r.kind === 'step') {
             // Sentence-aware mode: one caption line per segment, with the
-            // committed Spanish plus a tentative tail that may still change.
-            const key = 's' + r.segId;
+            // committed translation plus a tentative tail that may change.
+            const key = `${direction}:${r.segId}`;
             setLines((prev) => {
               const idx = prev.findLastIndex((l) => l.key === key);
-              const cur = idx >= 0 ? { ...prev[idx] } : { id: ++lineIdRef.current, key, es: '', en: '', done: false };
-              cur.es = [cur.es, r.committed].filter(Boolean).join(' ');
+              const cur = idx >= 0 ? { ...prev[idx] } : { id: ++lineIdRef.current, key, out: '', src: '', lang: DIRECTIONS[direction].to, done: false };
+              cur.out = [cur.out, r.committed].filter(Boolean).join(' ');
               cur.tentative = r.tentative;
-              cur.en = r.english;
+              cur.src = r.english;
               cur.done = r.final;
               if (idx >= 0) {
                 const next = prev.slice();
@@ -80,39 +90,39 @@ export function useInterpreter(settings) {
             if (r.committed) speaker.speak(r.committed);
             return;
           }
-          const es = tidySpanish(r.text, { final: r.final });
+          const out = tidyTarget(r.text, { final: r.final });
           setLines((prev) => {
             let next = prev;
             const last = next[next.length - 1];
             if (!last || last.done || r.start) {
-              next = [...next, { id: ++lineIdRef.current, es: '', en: '', done: false }];
+              next = [...next, { id: ++lineIdRef.current, out: '', src: '', lang: DIRECTIONS[direction].to, done: false }];
             } else {
               next = next.slice();
             }
             const cur = { ...next[next.length - 1] };
-            cur.es = [cur.es, es].filter(Boolean).join(' ');
-            cur.en = [cur.en, r.english].filter(Boolean).join(' ');
+            cur.out = [cur.out, out].filter(Boolean).join(' ');
+            cur.src = [cur.src, r.english].filter(Boolean).join(' ');
             if (r.final) cur.done = true;
             next[next.length - 1] = cur;
             return trimLines(next);
           });
-          if (es) speaker.speak(es);
+          if (out) speaker.speak(out);
         },
-      }),
-    [speaker],
-  );
+      });
+    }
+    return translatorsRef.current[direction];
+  }, [direction, speaker]);
 
   const chunker = useMemo(
     () =>
       new StreamChunker({
         ...PACES.balanced,
         onCommit: ({ text, final, start }) => {
-          const english = prepareEnglish(text, { start });
-          committedRef.current = final ? '' : [committedRef.current, english].filter(Boolean).join(' ');
-          translator.translate(english, { start, final });
+          committedRef.current = final ? '' : [committedRef.current, text].filter(Boolean).join(' ');
+          translator.translate(prepareSource(text, direction, { start }), { start, final, english: text });
         },
       }),
-    [translator],
+    [translator, direction],
   );
 
   const liturgyOnRef = useRef(settings.liturgy);
@@ -121,26 +131,30 @@ export function useInterpreter(settings) {
   const tracker = useMemo(() => {
     const t = new SourceTracker({
       onSegment: ({ segId, text, final, start }) => {
-        translator.step({ segId, text: prepareEnglish(text, { start }), final, start });
+        translator.step({ segId, text: prepareSource(text, direction, { start }), final, start, english: text });
       },
       onStable: (word, index) => {
         if (liturgyOnRef.current) matcher.feed(word, index);
       },
     });
-    // Known prayers and creeds are shown with their standard Spanish wording
-    // instead of being machine-translated.
+    // Known prayers and creeds are shown with their standard wording in the
+    // other language instead of being machine-translated.
     const matcher = new LiturgyMatcher({
+      from: DIRECTIONS[direction].from,
       onStart: ({ start }) => t.pause(start),
-      onLine: ({ es, title }) => {
+      onLine: ({ text, title }) => {
         setLines((prev) =>
-          trimLines([...prev, { id: ++lineIdRef.current, key: 'l' + lineIdRef.current, es, en: title, done: true, liturgy: true }]),
+          trimLines([
+            ...prev,
+            { id: ++lineIdRef.current, key: 'l' + lineIdRef.current, out: text, src: title, lang: DIRECTIONS[direction].to, done: true, liturgy: true },
+          ]),
         );
-        speaker.speak(es);
+        speaker.speak(text);
       },
       onEnd: ({ resumeAt }) => t.resume(resumeAt),
     });
     return t;
-  }, [translator, speaker]);
+  }, [translator, direction, speaker]);
 
   useEffect(() => {
     chunker.setOptions(PACES[settings.pace] || PACES.balanced);
@@ -185,14 +199,14 @@ export function useInterpreter(settings) {
     [simul, tracker, chunker],
   );
 
-  const loadSpeech = useCallback(async (engineKey) => {
+  const loadSpeech = useCallback(async (engineKey, lang) => {
     const Engine = ENGINES[engineKey];
-    setSpeechModel('loading');
+    setSpeechModels((m) => ({ ...m, [lang]: 'loading' }));
     try {
-      await new Engine({}).load();
-      setSpeechModel('ready');
+      await new Engine({ lang }).load();
+      setSpeechModels((m) => ({ ...m, [lang]: 'ready' }));
     } catch (e) {
-      setSpeechModel('error');
+      setSpeechModels((m) => ({ ...m, [lang]: 'error' }));
       throw e;
     }
   }, []);
@@ -201,7 +215,7 @@ export function useInterpreter(settings) {
   const prepare = useCallback(async ({ speech = true } = {}) => {
     setError(null);
     try {
-      await Promise.all([speech && loadSpeech(settings.engine), translator.load()]);
+      await Promise.all([speech && loadSpeech(settings.engine, from), translator.load()]);
       return true;
     } catch (e) {
       const msg = e.message || String(e);
@@ -213,7 +227,7 @@ export function useInterpreter(settings) {
       );
       return false;
     }
-  }, [loadSpeech, settings.engine, translator]);
+  }, [loadSpeech, settings.engine, from, translator]);
 
   const start = useCallback(async () => {
     speaker.unlock();
@@ -225,6 +239,7 @@ export function useInterpreter(settings) {
     }
     const Engine = ENGINES[settings.engine];
     const engine = new Engine({
+      lang: from,
       onPartial,
       onFinal,
       onLevel: (rms) => setLevel(Math.min(1, rms * 6)),
@@ -239,7 +254,7 @@ export function useInterpreter(settings) {
       setError(e.name === 'NotAllowedError' ? { code: 'errMicDenied' } : { detail: e.message || String(e) });
       setStatus('idle');
     }
-  }, [prepare, settings.engine, settings.deviceId, onPartial, onFinal, speaker]);
+  }, [prepare, settings.engine, settings.deviceId, from, onPartial, onFinal, speaker]);
 
   const stop = useCallback(() => {
     engineRef.current?.stop();
@@ -260,7 +275,7 @@ export function useInterpreter(settings) {
     speaker.stop();
   }, [translator, speaker]);
 
-  /** Type-to-test: streams typed English word by word like live speech. */
+  /** Type-to-test: streams typed text word by word like live speech. */
   const simulate = useCallback(
     async (text) => {
       speaker.unlock();
@@ -278,6 +293,9 @@ export function useInterpreter(settings) {
   useEffect(() => () => engineRef.current?.stop(), []);
 
   return {
+    direction,
+    from,
+    to,
     status,
     error,
     speechModel,

@@ -4,44 +4,46 @@
 import { MODELS, appUrl } from '../config.js';
 import { openMicrophone } from './microphone.js';
 
-let modelPromise = null;
+const modelPromises = {};
 
 // vosk-browser stores the model in IndexedDB keyed by its URL, so the same
 // URL must be used offline as when it was downloaded.
-const URL_KEY = 'vosk-model-url';
+const urlKey = (lang) => (lang === 'en' ? 'vosk-model-url' : `vosk-model-url-${lang}`);
 
-function rememberedUrl() {
+function rememberedUrl(lang) {
   try {
-    return localStorage.getItem(URL_KEY);
+    return localStorage.getItem(urlKey(lang));
   } catch {
     return null;
   }
 }
 
-async function resolveModelUrl() {
-  const local = appUrl('models/' + MODELS.speech.file);
+async function resolveModelUrl(lang) {
+  const { file, fallbackUrl } = MODELS.speech[lang];
+  const local = appUrl('models/' + file);
   try {
     const res = await fetch(local, { method: 'HEAD' });
     const type = res.headers.get('content-type') || '';
     if (res.ok && !type.includes('text/html')) return local;
   } catch {
     // Offline: reuse the URL the stored model was downloaded from.
-    return rememberedUrl() || MODELS.speech.fallbackUrl;
+    return rememberedUrl(lang) || fallbackUrl;
   }
-  return MODELS.speech.fallbackUrl;
+  return fallbackUrl;
 }
 
-export function loadVoskModel() {
-  if (!modelPromise) {
-    modelPromise = (async () => {
+/** Load (and cache) the speech model for 'en' or 'es'. */
+export function loadVoskModel(lang = 'en') {
+  if (!modelPromises[lang]) {
+    modelPromises[lang] = (async () => {
       const { Model } = await import('vosk-browser');
-      const url = await resolveModelUrl();
+      const url = await resolveModelUrl(lang);
       const model = new Model(url);
       return new Promise((resolve, reject) => {
         model.on('load', (m) => {
           if (!m.result) return reject(new Error('Speech model failed to load'));
           try {
-            localStorage.setItem(URL_KEY, url);
+            localStorage.setItem(urlKey(lang), url);
           } catch {
             // storage unavailable
           }
@@ -54,13 +56,14 @@ export function loadVoskModel() {
         });
       });
     })();
-    modelPromise.catch(() => (modelPromise = null));
+    modelPromises[lang].catch(() => delete modelPromises[lang]);
   }
-  return modelPromise;
+  return modelPromises[lang];
 }
 
 export class VoskEngine {
-  constructor({ onPartial, onFinal, onLevel, onError }) {
+  constructor({ lang = 'en', onPartial, onFinal, onLevel, onError }) {
+    this.lang = lang;
     this.onPartial = onPartial;
     this.onFinal = onFinal;
     this.onLevel = onLevel || (() => {});
@@ -69,13 +72,12 @@ export class VoskEngine {
     this.recognizer = null;
   }
 
-
   load() {
-    return loadVoskModel();
+    return loadVoskModel(this.lang);
   }
 
   async start({ deviceId } = {}) {
-    const model = await loadVoskModel();
+    const model = await loadVoskModel(this.lang);
     let recognizer = null;
     this.mic = await openMicrophone({
       deviceId,

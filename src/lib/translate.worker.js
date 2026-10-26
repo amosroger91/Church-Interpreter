@@ -1,8 +1,10 @@
-// Runs the English -> Spanish translation model off the main thread.
-// Model: Helsinki-NLP opus-mt-en-es (MarianMT), ONNX-quantized, executed
-// with ONNX Runtime Web (WebAssembly). Works fully offline once cached.
+// Runs a translation model (English -> Spanish or Spanish -> English) off the
+// main thread. Models: Helsinki-NLP opus-mt-en-es / opus-mt-es-en (MarianMT),
+// ONNX-quantized, executed with ONNX Runtime Web (WebAssembly). Works fully
+// offline once cached.
 import { env, AutoTokenizer, AutoModelForSeq2SeqLM } from '@huggingface/transformers';
 import { SimulTranslator } from './simul.js';
+import { DIRECTIONS, finishTarget } from './languages.js';
 // ONNX Runtime's WebAssembly files, bundled with the app (instead of the
 // CDN transformers.js would use) so they are cached for offline use.
 import ortAsyncifyMjs from 'onnxruntime-web/ort-wasm-simd-threaded.asyncify.mjs?url';
@@ -71,7 +73,15 @@ async function load(msg) {
         AutoTokenizer.from_pretrained(msg.modelId, { progress_callback }),
         AutoModelForSeq2SeqLM.from_pretrained(msg.modelId, { dtype: 'q8', device: 'wasm', progress_callback }),
       ]);
-      translator = new SimulTranslator({ tokenizer, model, ...msg.simulOptions });
+      const { direction } = msg;
+      translator = new SimulTranslator({
+        tokenizer,
+        model,
+        // Church glossary and output fixes for this direction.
+        postprocess: (text) => finishTarget(text, direction),
+        holdWords: new Set(DIRECTIONS[direction].holdWords),
+        ...msg.simulOptions,
+      });
       return translator;
     })();
   }

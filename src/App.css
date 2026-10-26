@@ -112,6 +112,26 @@ h1 {
   border-color: var(--danger);
 }
 
+.direction {
+  display: inline-flex;
+  align-self: flex-start;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.direction button {
+  border: 0;
+  border-radius: 0;
+  padding: 10px 18px;
+  font-weight: 600;
+}
+
+.direction button.active {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
 .controls {
   display: flex;
   gap: 10px;
@@ -202,11 +222,11 @@ button.primary.stop {
   opacity: 1;
 }
 
-.es {
+.out {
   font-weight: 600;
 }
 
-.line-liturgy .es {
+.line-liturgy .out {
   font-style: italic;
 }
 
@@ -216,14 +236,14 @@ button.primary.stop {
   opacity: 0.45;
 }
 
-.en,
-.live-en {
+.src,
+.live-src {
   font-size: 0.4em;
   color: #b9b1a1;
   margin-top: 0.2em !important;
 }
 
-.live-en .pending {
+.live-src .pending {
   color: #7d7666;
   font-style: italic;
 }

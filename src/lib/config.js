@@ -1,14 +1,17 @@
-// Model locations. scripts/fetch-models.mjs downloads these into
-// public/models/ at build time so the deployed site is self-contained;
-// the remote URLs are only used as a fallback (e.g. in local development).
+// Speech-recognition model locations, per spoken language.
+// scripts/fetch-models.mjs can download these into public/models/ so the
+// app serves them itself; otherwise they come from the vosk-browser site.
+// (Translation models are listed in languages.js.)
 export const MODELS = {
   speech: {
-    file: 'vosk-model-small-en-us-0.15.tar.gz',
-    fallbackUrl:
-      'https://ccoreilly.github.io/vosk-browser/models/vosk-model-small-en-us-0.15.tar.gz',
-  },
-  translation: {
-    id: 'Xenova/opus-mt-en-es',
+    en: {
+      file: 'vosk-model-small-en-us-0.15.tar.gz',
+      fallbackUrl: 'https://ccoreilly.github.io/vosk-browser/models/vosk-model-small-en-us-0.15.tar.gz',
+    },
+    es: {
+      file: 'vosk-model-small-es-0.3.tar.gz',
+      fallbackUrl: 'https://ccoreilly.github.io/vosk-browser/models/vosk-model-small-es-0.3.tar.gz',
+    },
   },
 };
 

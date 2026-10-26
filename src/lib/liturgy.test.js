@@ -6,12 +6,33 @@ function run(text, opts) {
   const m = new LiturgyMatcher({
     ...opts,
     onStart: (e) => events.push(['start', e.start]),
-    onLine: (e) => events.push(['line', e.es]),
+    onLine: (e) => events.push(['line', e.text]),
     onEnd: (e) => events.push(['end', e.resumeAt]),
   });
   text.split(' ').forEach((w, i) => m.feed(w, i));
   return events;
 }
+
+describe('LiturgyMatcher (Spanish speaker)', () => {
+  it("recognizes the Padre Nuestro and gives the traditional English", () => {
+    const events = [];
+    const m = new LiturgyMatcher({
+      from: 'es',
+      onStart: (e) => events.push(['start', e.start]),
+      onLine: (e) => events.push(['line', e.text]),
+      onEnd: (e) => events.push(['end', e.resumeAt]),
+    });
+    'oremos juntos padre nuestro que estas en el cielo santificado sea tu nombre venga tu reino'
+      .split(' ')
+      .forEach((w, i) => m.feed(w, i));
+    expect(events).toEqual([
+      ['start', 2],
+      ['line', 'Our Father, which art in heaven,'],
+      ['line', 'hallowed be thy name.'],
+      ['line', 'Thy kingdom come.'],
+    ]);
+  });
+});
 
 describe('LiturgyMatcher', () => {
   it("recognizes the Lord's Prayer and emits the Spanish line by line", () => {
@@ -30,7 +51,7 @@ describe('LiturgyMatcher', () => {
     );
     const lines = ev.filter((e) => e[0] === 'line').map((e) => e[1]);
     expect(lines).toHaveLength(5);
-    expect(lines.at(-1)).toBe('Porque tuyo es el reino, el poder y la gloria, por siempre. Amén.');
+    expect(lines.at(-1)).toBe('porque tuyo es el reino, y el poder, y la gloria, por todos los siglos. Amén.');
     expect(ev.at(-1)).toEqual(['end', 41]);
   });
 
@@ -44,5 +65,7 @@ describe('LiturgyMatcher', () => {
 
   it('does not trigger on ordinary speech', () => {
     expect(run('our father loves us and he wants us to come home to him today')).toEqual([]);
+    // One word away from the Creed's "to the dead. On the third day".
+    expect(run('come to the potluck in the fellowship hall after the service')).toEqual([]);
   });
 });

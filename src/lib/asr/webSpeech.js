@@ -8,7 +8,9 @@ const SR = typeof window !== 'undefined' && (window.SpeechRecognition || window.
 export class WebSpeechEngine {
   static supported = Boolean(SR);
 
-  constructor({ onPartial, onFinal, onLevel, onError }) {
+  constructor({ lang = 'en', onPartial, onFinal, onLevel, onError }) {
+    // US Spanish covers the mix of accents in US Hispanic congregations.
+    this.locale = lang === 'es' ? 'es-US' : 'en-US';
     this.onPartial = onPartial;
     this.onFinal = onFinal;
     this.onLevel = onLevel || (() => {});
@@ -35,7 +37,7 @@ export class WebSpeechEngine {
 
   _startRecognizer() {
     const rec = new SR();
-    rec.lang = 'en-US';
+    rec.lang = this.locale;
     rec.continuous = true;
     rec.interimResults = true;
     rec.maxAlternatives = 1;

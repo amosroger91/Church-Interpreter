@@ -48,5 +48,212 @@
     "id": "invitation",
     "en": "If you are carrying a heavy burden this morning I want you to know that you do not have to carry it alone Jesus said come to me all you who are weary and I will give you rest",
     "es": "Si llevan una carga pesada esta mañana, quiero que sepan que no tienen que llevarla solos. Jesús dijo: Venid a mí todos los que estáis trabajados y cargados, y yo os haré descansar."
+  },
+  {
+    "id": "es-announce",
+    "en": "Brothers and sisters, this Sunday after the service we'll have a potluck in the fellowship hall, so bring a dish to share.",
+    "es": "Hermanos, este domingo después del culto tendremos un convivio en el salón de compañerismo, así que traigan un platillo para compartir.",
+    "terms": {
+      "en": [
+        "service",
+        "potluck",
+        "fellowship hall"
+      ],
+      "es": [
+        "culto",
+        "convivio",
+        "salón de compañerismo"
+      ]
+    }
+  },
+  {
+    "id": "es-altar-call",
+    "en": "If you want to accept Christ this morning, come forward and the brothers and sisters will pray for you.",
+    "es": "Si usted quiere aceptar a Cristo esta mañana, pase al frente y los hermanos van a orar por usted.",
+    "terms": {
+      "en": [
+        "come forward"
+      ],
+      "es": [
+        "al frente"
+      ]
+    }
+  },
+  {
+    "id": "es-conjunto",
+    "en": "Let's give the praise team a hand for the worship this morning. Praise the Lord!",
+    "es": "Démosle un aplauso al conjunto por la alabanza de esta mañana. ¡Gloria a Dios!",
+    "terms": {
+      "en": [
+        "praise team"
+      ],
+      "es": [
+        "conjunto"
+      ]
+    }
+  },
+  {
+    "id": "es-campaign",
+    "en": "Next week we have revival services every night at seven, invite your family.",
+    "es": "La próxima semana tenemos campaña de avivamiento todas las noches a las siete, inviten a sus familiares.",
+    "terms": {
+      "en": [
+        "revival"
+      ],
+      "es": [
+        "campaña de avivamiento"
+      ]
+    }
+  },
+  {
+    "id": "es-cells",
+    "en": "The small groups meet on Wednesdays in the members' homes, and on Friday we have youth service.",
+    "es": "Las células se reúnen los miércoles en las casas de los hermanos, y el viernes tenemos culto de jóvenes.",
+    "terms": {
+      "en": [
+        "small groups",
+        "youth service"
+      ],
+      "es": [
+        "células",
+        "culto de jóvenes"
+      ]
+    }
+  },
+  {
+    "id": "es-tithes",
+    "en": "Now we're going to give our tithes and offerings; the ushers will come by the pews.",
+    "es": "Ahora vamos a dar nuestros diezmos y ofrendas; los ujieres van a pasar por las bancas.",
+    "terms": {
+      "en": [
+        "ushers",
+        "tithes"
+      ],
+      "es": [
+        "ujieres",
+        "diezmos"
+      ]
+    }
+  },
+  {
+    "id": "es-bible",
+    "en": "Open your Bibles to Romans chapter eight, verse twenty-eight.",
+    "es": "Abran sus Biblias en Romanos capítulo ocho, versículo veintiocho.",
+    "terms": {
+      "en": [
+        "Romans"
+      ],
+      "es": [
+        "Romanos"
+      ]
+    }
+  },
+  {
+    "id": "es-testimony",
+    "en": "I want to share a testimony of how the Lord healed my mother when the doctors had given up hope.",
+    "es": "Quiero compartir un testimonio de cómo el Señor sanó a mi madre cuando los doctores ya no le daban esperanza.",
+    "terms": {
+      "en": [
+        "testimony"
+      ],
+      "es": [
+        "testimonio"
+      ]
+    }
+  },
+  {
+    "id": "es-supper",
+    "en": "Today we are going to take the Lord's Supper, so let's prepare our hearts before the Lord.",
+    "es": "Hoy vamos a tomar la Santa Cena, así que preparemos nuestro corazón delante del Señor.",
+    "terms": {
+      "en": [
+        "Lord's Supper"
+      ],
+      "es": [
+        "Santa Cena"
+      ]
+    }
+  },
+  {
+    "id": "es-amen",
+    "en": "God is faithful, can I get an amen?",
+    "es": "Dios es fiel, ¿quién dice amén?",
+    "terms": {
+      "en": [
+        "amen"
+      ],
+      "es": [
+        "quién dice amén"
+      ]
+    }
+  },
+  {
+    "id": "south-revival",
+    "en": "Y'all come on back tonight for the revival meeting, we're fixing to have a great time in the Lord.",
+    "es": "Vuelvan todos esta noche para la campaña de avivamiento; vamos a pasar un gran tiempo en el Señor.",
+    "terms": {
+      "en": [
+        "revival"
+      ],
+      "es": [
+        "campaña de avivamiento"
+      ]
+    }
+  },
+  {
+    "id": "south-dinner",
+    "en": "Let's thank the praise and worship team, and after the service we'll have dinner on the grounds.",
+    "es": "Agradezcamos al conjunto, y después del culto tendremos un convivio.",
+    "terms": {
+      "en": [
+        "praise team",
+        "service"
+      ],
+      "es": [
+        "conjunto",
+        "culto",
+        "convivio"
+      ]
+    }
+  },
+  {
+    "id": "south-saved",
+    "en": "If you want to get saved this morning, walk the aisle while the choir sings, can I get an amen?",
+    "es": "Si quieres aceptar a Cristo esta mañana, pasa al frente mientras el coro canta. ¿Quién dice amén?",
+    "terms": {
+      "en": [],
+      "es": [
+        "aceptar a Cristo",
+        "al frente",
+        "quién dice amén"
+      ]
+    }
+  },
+  {
+    "id": "south-corinthians",
+    "en": "Turn with me in your Bibles to first Corinthians chapter thirteen.",
+    "es": "Abran sus Biblias conmigo en Primera de Corintios capítulo trece.",
+    "terms": {
+      "en": [
+        "Corinthians"
+      ],
+      "es": [
+        "Primera de Corintios"
+      ]
+    }
+  },
+  {
+    "id": "south-ushers",
+    "en": "The ushers will now come forward to receive the tithes and offerings.",
+    "es": "Los ujieres pasarán ahora al frente para recibir los diezmos y las ofrendas.",
+    "terms": {
+      "en": [
+        "ushers"
+      ],
+      "es": [
+        "ujieres",
+        "diezmos"
+      ]
+    }
   }
 ]
