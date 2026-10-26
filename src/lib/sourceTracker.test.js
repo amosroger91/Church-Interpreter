@@ -57,3 +57,40 @@ describe('SourceTracker', () => {
     ]);
   });
 });
+
+describe('SourceTracker with the liturgy matcher', () => {
+  it('hands a recognized prayer to the matcher and resumes translation after it', async () => {
+    const { LiturgyMatcher } = await import('./liturgy.js');
+    const segs = [];
+    const lines = [];
+    let matcher;
+    const t = new SourceTracker({
+      onSegment: (s) => segs.push(s),
+      onStable: (w, i) => matcher.feed(w, i),
+    });
+    matcher = new LiturgyMatcher({
+      onStart: ({ start }) => t.pause(start),
+      onLine: ({ es }) => lines.push(es),
+      onEnd: ({ resumeAt }) => t.resume(resumeAt),
+    });
+    const words = 'please stand as we pray our father who art in heaven hallowed be thy name amen now open your bibles'.split(' ');
+    for (let i = 1; i <= words.length; i++) t.update(words.slice(0, i).join(' '), i * 100);
+    t.finalize(words.join(' '));
+    expect(lines).toEqual(['Padre nuestro que estás en los cielos,', 'santificado sea tu nombre.']);
+    const finals = segs.filter((s) => s.final).map((s) => s.text);
+    expect(finals).toEqual(['please stand as we pray', 'amen now open your bibles']);
+  });
+});
+
+describe('SourceTracker segment splitting', () => {
+  it('never cuts a segment before words that were already sent', () => {
+    const out = [];
+    const t = new SourceTracker({ maxSegmentWords: 8, onSegment: (s) => out.push(s) });
+    const words = 'god gives us grace freely even when we do not deserve it'.split(' ');
+    for (let i = 1; i <= words.length; i++) t.update(words.slice(0, i).join(' '), i);
+    const finals = out.filter((s) => s.final);
+    const seg0 = out.filter((s) => s.segId === 0);
+    const longestSent = Math.max(...seg0.map((s) => s.text.split(' ').length));
+    expect(finals[0].text.split(' ').length).toBeGreaterThanOrEqual(longestSent);
+  });
+});

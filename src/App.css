@@ -178,6 +178,10 @@ button.primary.stop {
   font-weight: 600;
 }
 
+.line-liturgy .es {
+  font-style: italic;
+}
+
 /* Spanish that may still change as the sentence continues (not spoken yet). */
 .tentative {
   font-weight: 400;

@@ -46,8 +46,12 @@ export class SimulTranslator {
    * @param {number} [opts.agreeDepth] how many consecutive translations must
    *   agree before words are committed (2 = this one and the previous one)
    * @param {number} [opts.holdBackWords] extra agreed words to keep tentative
+   * @param {number} [opts.minSourceWords] English words a segment needs before
+   *   anything is committed (the first words of a sentence are the most
+   *   ambiguous, e.g. "for God" -> "Por Dios" vs. "Porque Dios")
    */
-  constructor({ tokenizer, model, agreeDepth = 2, holdBackWords = 0 }) {
+  constructor({ tokenizer, model, agreeDepth = 2, holdBackWords = 0, minSourceWords = 0 }) {
+    this.minSourceWords = minSourceWords;
     this.tokenizer = tokenizer;
     this.model = model;
     this.agreeDepth = Math.max(2, agreeDepth);
@@ -59,6 +63,12 @@ export class SimulTranslator {
         .flat()
         .filter((x) => x != null),
     );
+    // transformers.js only forwards generate() arguments listed in the
+    // model's forward_params; Marian's list omits decoder_input_ids, which
+    // would silently drop the forced prefix.
+    if (Array.isArray(model.forward_params) && !model.forward_params.includes('decoder_input_ids')) {
+      model.forward_params = [...model.forward_params, 'decoder_input_ids'];
+    }
     this.idToToken = [];
     for (const [tok, id] of tokenizer.get_vocab()) this.idToToken[id] = tok;
     this.segments = new Map();
@@ -94,11 +104,15 @@ export class SimulTranslator {
       ...inputs,
       decoder_input_ids: [this.startId, ...prefix],
       bad_words_ids: badWords,
-      max_new_tokens: Math.max(8, Math.ceil(srcLen * 1.6) + 8 - prefix.length),
+      // Budget for the new tokens only (the model stops at end-of-sentence).
+      max_new_tokens: Math.ceil(srcLen * 1.5) + 10,
       num_beams: 1,
       do_sample: false,
     });
     const ids = Array.from(out.tolist()[0], Number);
+    if (prefix.some((id, i) => ids[i + 1] !== id)) {
+      throw new Error('Translation model did not keep the forced prefix');
+    }
     const cont = ids.slice(prefix.length + 1);
     // Drop end-of-sentence / padding tokens.
     const end = cont.findIndex((id) => this.specialIds.has(id));
@@ -116,6 +130,10 @@ export class SimulTranslator {
    * committed. Returns the newly committed Spanish plus a tentative tail.
    */
   async step(segId, source, final) {
+    if (!source.trim()) {
+      this.segments.delete(segId);
+      return { segId, committed: '', tentative: '', final };
+    }
     const seg = this.segments.get(segId) || { committed: [], history: [] };
     let cont = await this._generate(source, seg.committed);
 
@@ -126,8 +144,9 @@ export class SimulTranslator {
       // A translation of an unfinished sentence usually ends with a period
       // the speaker hasn't said yet; never commit trailing punctuation.
       while (cont.length && this._isSentenceEnd(cont[cont.length - 1])) cont = cont.slice(0, -1);
+      const enoughContext = source.trim().split(/\s+/).length >= this.minSourceWords;
       const k =
-        seg.history.length >= this.agreeDepth - 1
+        enoughContext && seg.history.length >= this.agreeDepth - 1
           ? agreedCommitLength(seg.history, cont, this.isWordStart, { holdBackWords: this.holdBackWords })
           : 0;
       commit = cont.slice(0, k);

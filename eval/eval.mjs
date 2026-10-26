@@ -148,8 +148,10 @@ const STRATEGIES = {
   offline: offline,
   'fragment-balanced': fragment({ minWords: 3, maxWords: 7, maxWaitMs: 1200 }),
   'simul-a2': simul({ agreeDepth: 2 }),
-  'simul-a2-h1': simul({ agreeDepth: 2, holdBackWords: 1 }),
+  'simul-a2-w4': simul({ agreeDepth: 2, minSourceWords: 4 }),
   'simul-a3': simul({ agreeDepth: 3 }),
+  'simul-a3-w4': simul({ agreeDepth: 3, minSourceWords: 4 }),
+  'simul-a2-h1-w4': simul({ agreeDepth: 2, holdBackWords: 1, minSourceWords: 4 }),
 };
 
 const rows = [];

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StreamChunker } from './lib/chunker.js';
 import { SourceTracker } from './lib/sourceTracker.js';
+import { LiturgyMatcher } from './lib/liturgy.js';
 import { Translator } from './lib/translator.js';
 import { Speaker } from './lib/speaker.js';
 import { prepareEnglish, tidySpanish } from './lib/text.js';
@@ -116,15 +117,32 @@ export function useInterpreter(settings) {
     [translator],
   );
 
-  const tracker = useMemo(
-    () =>
-      new SourceTracker({
-        onSegment: ({ segId, text, final, start }) => {
-          translator.step({ segId, text: prepareEnglish(text, { start }), final, start });
-        },
-      }),
-    [translator],
-  );
+  const liturgyOnRef = useRef(settings.liturgy);
+  liturgyOnRef.current = settings.liturgy;
+
+  const tracker = useMemo(() => {
+    const t = new SourceTracker({
+      onSegment: ({ segId, text, final, start }) => {
+        translator.step({ segId, text: prepareEnglish(text, { start }), final, start });
+      },
+      onStable: (word, index) => {
+        if (liturgyOnRef.current) matcher.feed(word, index);
+      },
+    });
+    // Known prayers and creeds are shown with their standard Spanish wording
+    // instead of being machine-translated.
+    const matcher = new LiturgyMatcher({
+      onStart: ({ start }) => t.pause(start),
+      onLine: ({ es, title }) => {
+        setLines((prev) =>
+          trimLines([...prev, { id: ++lineIdRef.current, key: 'l' + lineIdRef.current, es, en: title, done: true, liturgy: true }]),
+        );
+        speaker.speak(es);
+      },
+      onEnd: ({ resumeAt }) => t.resume(resumeAt),
+    });
+    return t;
+  }, [translator, speaker]);
 
   useEffect(() => {
     chunker.setOptions(PACES[settings.pace] || PACES.balanced);

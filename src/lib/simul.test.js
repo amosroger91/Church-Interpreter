@@ -76,3 +76,13 @@ describe('SimulTranslator', () => {
     expect(st.segments.size).toBe(0);
   });
 });
+
+describe('SimulTranslator setup', () => {
+  it('makes generate() forward the forced decoder prefix', () => {
+    const tokenizer = () => ({});
+    tokenizer.get_vocab = () => new Map();
+    const model = { config: {}, forward_params: ['input_ids', 'attention_mask', 'past_key_values'] };
+    new SimulTranslator({ tokenizer, model });
+    expect(model.forward_params).toContain('decoder_input_ids');
+  });
+});

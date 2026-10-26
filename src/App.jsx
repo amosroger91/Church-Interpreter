@@ -5,6 +5,7 @@ import { listSpanishVoices } from './lib/speaker.js';
 const DEFAULTS = {
   engine: 'vosk',
   mode: 'simul',
+  liturgy: true,
   pace: 'balanced',
   speak: true,
   voiceURI: '',
@@ -92,7 +93,7 @@ function Captions({ lines, live, fontSize, showEnglish, big }) {
         <p className="placeholder">La interpretación en español aparecerá aquí.</p>
       )}
       {visible.map((l, i) => (
-        <div key={l.id} className={`line ${i === visible.length - 1 ? 'line-current' : ''}`}>
+        <div key={l.id} className={`line ${i === visible.length - 1 ? 'line-current' : ''} ${l.liturgy ? 'line-liturgy' : ''}`}>
           <p className="es" lang="es">
             {l.es}
             {l.tentative && !l.done && <span className="tentative"> {l.tentative}</span>}
@@ -246,6 +247,12 @@ export default function App() {
               ))}
             </select>
           </label>
+          {settings.mode !== 'fragment' && (
+            <label className="check">
+              <input type="checkbox" checked={settings.liturgy} onChange={(e) => set({ liturgy: e.target.checked })} />
+              Use standard Spanish wording for the Lord&apos;s Prayer, Gloria, Doxology and Apostles&apos; Creed
+            </label>
+          )}
           {settings.mode === 'fragment' && (
             <label>
               Pace (delay vs. accuracy)
