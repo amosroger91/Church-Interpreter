@@ -36,6 +36,18 @@ export function agreedCommitLength(prevs, cont, isWordStart, { holdBackWords = 0
   return k;
 }
 
+// Commit policies, chosen with eval/eval.mjs (chrF vs. reference / average
+// lag in English words, on the bundled sermon passages):
+//   fast      63.7 / 3.0   commit when two consecutive passes agree
+//   balanced  68.6 / 3.9   ...and keep the last agreed word tentative, and
+//                          wait for 4 English words before committing
+// (classic fragment mode: 55.0 / 2.3; whole-passage translation: 70.5)
+export const SIMUL_PACES = {
+  fast: { agreeDepth: 2, holdBackWords: 0, minSourceWords: 0 },
+  balanced: { agreeDepth: 2, holdBackWords: 1, minSourceWords: 4 },
+};
+export const SIMUL_DEFAULTS = SIMUL_PACES.balanced;
+
 const SENTENCE_END = /^[\s▁]*[.!?…;:]+[\s▁]*$/;
 
 export class SimulTranslator {
@@ -50,12 +62,10 @@ export class SimulTranslator {
    *   anything is committed (the first words of a sentence are the most
    *   ambiguous, e.g. "for God" -> "Por Dios" vs. "Porque Dios")
    */
-  constructor({ tokenizer, model, agreeDepth = 2, holdBackWords = 0, minSourceWords = 0 }) {
-    this.minSourceWords = minSourceWords;
+  constructor({ tokenizer, model, ...options }) {
     this.tokenizer = tokenizer;
     this.model = model;
-    this.agreeDepth = Math.max(2, agreeDepth);
-    this.holdBackWords = holdBackWords;
+    this.configure({ ...SIMUL_DEFAULTS, ...options });
     const cfg = model.config || {};
     this.startId = cfg.decoder_start_token_id ?? cfg.pad_token_id ?? 0;
     this.specialIds = new Set(
@@ -72,6 +82,13 @@ export class SimulTranslator {
     this.idToToken = [];
     for (const [tok, id] of tokenizer.get_vocab()) this.idToToken[id] = tok;
     this.segments = new Map();
+  }
+
+  /** Change how eagerly words are committed (see SIMUL_PACES). */
+  configure({ agreeDepth, holdBackWords, minSourceWords }) {
+    if (agreeDepth != null) this.agreeDepth = Math.max(2, agreeDepth);
+    if (holdBackWords != null) this.holdBackWords = holdBackWords;
+    if (minSourceWords != null) this.minSourceWords = minSourceWords;
   }
 
   isWordStart = (id) => {

@@ -14,7 +14,7 @@
 //   ms/call  average model time per translation call
 import { readFileSync } from 'node:fs';
 import { env, AutoTokenizer, AutoModelForSeq2SeqLM } from '@huggingface/transformers';
-import { SimulTranslator } from '../src/lib/simul.js';
+import { SIMUL_PACES, SimulTranslator } from '../src/lib/simul.js';
 import { StreamChunker } from '../src/lib/chunker.js';
 import { SourceTracker } from '../src/lib/sourceTracker.js';
 import { prepareEnglish, tidySpanish } from '../src/lib/text.js';
@@ -147,11 +147,9 @@ function lagOf(words, committedAfterWord, finalEs) {
 const STRATEGIES = {
   offline: offline,
   'fragment-balanced': fragment({ minWords: 3, maxWords: 7, maxWaitMs: 1200 }),
-  'simul-a2': simul({ agreeDepth: 2 }),
-  'simul-a2-w4': simul({ agreeDepth: 2, minSourceWords: 4 }),
-  'simul-a3': simul({ agreeDepth: 3 }),
-  'simul-a3-w4': simul({ agreeDepth: 3, minSourceWords: 4 }),
-  'simul-a2-h1-w4': simul({ agreeDepth: 2, holdBackWords: 1, minSourceWords: 4 }),
+  'simul-fast': simul(SIMUL_PACES.fast),
+  'simul-balanced': simul(SIMUL_PACES.balanced),
+  'simul-a3': simul({ agreeDepth: 3, holdBackWords: 0, minSourceWords: 0 }),
 };
 
 const rows = [];

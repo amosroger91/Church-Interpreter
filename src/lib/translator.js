@@ -87,6 +87,12 @@ export class Translator {
     this.pending = [];
   }
 
+  /** Change the sentence-aware commit policy (applies to the next step). */
+  configure(simulOptions) {
+    this.simulOptions = simulOptions;
+    this.worker?.postMessage({ type: 'configure', options: simulOptions });
+  }
+
   _pump() {
     if (this.busy || !this.ready || this.pending.length === 0) return;
     const job = this.pending[0];

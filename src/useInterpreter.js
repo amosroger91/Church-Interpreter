@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StreamChunker } from './lib/chunker.js';
 import { SourceTracker } from './lib/sourceTracker.js';
 import { LiturgyMatcher } from './lib/liturgy.js';
+import { SIMUL_PACES } from './lib/simul.js';
 import { Translator } from './lib/translator.js';
 import { Speaker } from './lib/speaker.js';
 import { prepareEnglish, tidySpanish } from './lib/text.js';
@@ -13,12 +14,12 @@ export const ENGINES = {
   webspeech: WebSpeechEngine,
 };
 
-// How eagerly to send words for translation. Smaller chunks = less delay,
-// larger chunks = more context for the translator = better Spanish.
+// How eagerly to commit translations. In sentence-aware mode this selects
+// SIMUL_PACES; in classic mode, the chunk size (smaller = less delay, larger
+// = more context for the translator = better Spanish).
 export const PACES = {
-  fast: { label: 'Fast', minWords: 2, maxWords: 5, maxWaitMs: 800 },
-  balanced: { label: 'Balanced', minWords: 3, maxWords: 7, maxWaitMs: 1200 },
-  accurate: { label: 'Accurate', minWords: 5, maxWords: 11, maxWaitMs: 2000 },
+  fast: { label: 'Fast (least delay)', minWords: 2, maxWords: 5, maxWaitMs: 800 },
+  balanced: { label: 'Balanced (best quality)', minWords: 3, maxWords: 7, maxWaitMs: 1200 },
 };
 
 // How the English is fed to the translator.
@@ -146,7 +147,8 @@ export function useInterpreter(settings) {
 
   useEffect(() => {
     chunker.setOptions(PACES[settings.pace] || PACES.balanced);
-  }, [chunker, settings.pace]);
+    translator.configure(SIMUL_PACES[settings.pace] || SIMUL_PACES.balanced);
+  }, [chunker, translator, settings.pace]);
 
   const simul = settings.mode !== 'fragment';
   const liveText = useCallback(

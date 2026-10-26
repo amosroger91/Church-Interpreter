@@ -62,7 +62,7 @@ describe('SimulTranslator', () => {
 
   it('commits words once two passes agree, never the trailing period', async () => {
     const { tokenizer, model, calls } = fakeSetup(dict);
-    const st = new SimulTranslator({ tokenizer, model });
+    const st = new SimulTranslator({ tokenizer, model, agreeDepth: 2, holdBackWords: 0, minSourceWords: 0 });
     let r = await st.step(0, 'the lord', false);
     expect(r).toMatchObject({ committed: '', tentative: 'el señor' });
     r = await st.step(0, 'the lord is', false);

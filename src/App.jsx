@@ -253,18 +253,16 @@ export default function App() {
               Use standard Spanish wording for the Lord&apos;s Prayer, Gloria, Doxology and Apostles&apos; Creed
             </label>
           )}
-          {settings.mode === 'fragment' && (
-            <label>
-              Pace (delay vs. accuracy)
-              <select value={settings.pace} onChange={(e) => set({ pace: e.target.value })}>
-                {Object.entries(PACES).map(([k, p]) => (
-                  <option key={k} value={k}>
-                    {p.label} — {p.minWords}–{p.maxWords} words per chunk
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
+          <label>
+            Pace
+            <select value={settings.pace} onChange={(e) => set({ pace: e.target.value })}>
+              {Object.entries(PACES).map(([k, p]) => (
+                <option key={k} value={k}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+          </label>
           <label className="check">
             <input type="checkbox" checked={settings.speak} onChange={(e) => set({ speak: e.target.checked })} />
             Speak Spanish aloud (use headphones or a transmitter to avoid feedback)

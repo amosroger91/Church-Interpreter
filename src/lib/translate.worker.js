@@ -78,6 +78,8 @@ self.onmessage = async (e) => {
       // Warm up so the first real chunk is fast.
       await t.translate('Hello.');
       self.postMessage({ type: 'ready' });
+    } else if (msg.type === 'configure') {
+      translator?.configure(msg.options);
     } else if (msg.type === 'translate') {
       const text = await translator.translate(msg.text);
       self.postMessage({ type: 'result', id: msg.id, text, ms: Math.round(performance.now() - started) });
