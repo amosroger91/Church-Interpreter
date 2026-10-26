@@ -148,6 +148,9 @@ export function SettingsSheet({ open, onClose, t, it, settings, set, voices, mic
           </p>
           <p>{t('footer')}</p>
           <p>{t('verseCredit')} {RVR1960_NOTICE}</p>
+          <p>
+            {t('version')} {__APP_VERSION__}
+          </p>
         </section>
       </aside>
     </div>

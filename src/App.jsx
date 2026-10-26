@@ -5,6 +5,7 @@ import { useMicrophones, useSettings, useVoices, useWakeLock } from './hooks.js'
 import { Icon } from './components/Icons.jsx';
 import { Captions, DisplayCaptions, Verse } from './components/Captions.jsx';
 import { SettingsSheet } from './components/SettingsSheet.jsx';
+import { installUpdate, onUpdateReady } from './lib/pwa.js';
 
 const LANG_NAME = { en: 'English', es: 'Español' };
 
@@ -78,6 +79,14 @@ export default function App() {
   useEffect(() => {
     navigator.storage?.persist?.().catch(() => {});
   }, []);
+
+  // A new version of the app was downloaded: switch to it now, or as soon as
+  // interpreting stops (reloading would cut off the microphone).
+  const [updateReady, setUpdateReady] = useState(false);
+  useEffect(() => onUpdateReady(() => setUpdateReady(true)), []);
+  useEffect(() => {
+    if (updateReady && it.status === 'idle') installUpdate();
+  }, [updateReady, it.status]);
 
   useEffect(() => {
     const onKey = (e) => e.key === 'Escape' && setDisplay(false);
