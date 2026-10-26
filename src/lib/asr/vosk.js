@@ -6,6 +6,18 @@ import { openMicrophone } from './microphone.js';
 
 let modelPromise = null;
 
+// vosk-browser stores the model in IndexedDB keyed by its URL, so the same
+// URL must be used offline as when it was downloaded.
+const URL_KEY = 'vosk-model-url';
+
+function rememberedUrl() {
+  try {
+    return localStorage.getItem(URL_KEY);
+  } catch {
+    return null;
+  }
+}
+
 async function resolveModelUrl() {
   const local = appUrl('models/' + MODELS.speech.file);
   try {
@@ -13,7 +25,8 @@ async function resolveModelUrl() {
     const type = res.headers.get('content-type') || '';
     if (res.ok && !type.includes('text/html')) return local;
   } catch {
-    // ignore, use fallback
+    // Offline: reuse the URL the stored model was downloaded from.
+    return rememberedUrl() || MODELS.speech.fallbackUrl;
   }
   return MODELS.speech.fallbackUrl;
 }
@@ -25,7 +38,15 @@ export function loadVoskModel() {
       const url = await resolveModelUrl();
       const model = new Model(url);
       return new Promise((resolve, reject) => {
-        model.on('load', (m) => (m.result ? resolve(model) : reject(new Error('Speech model failed to load'))));
+        model.on('load', (m) => {
+          if (!m.result) return reject(new Error('Speech model failed to load'));
+          try {
+            localStorage.setItem(URL_KEY, url);
+          } catch {
+            // storage unavailable
+          }
+          resolve(model);
+        });
         model.on('error', (m) => {
           // Stop the Web Worker directly; model.terminate() assumes a loaded model.
           model.worker?.terminate();

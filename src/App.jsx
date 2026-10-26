@@ -138,6 +138,24 @@ export default function App() {
   useEffect(() => {
     document.documentElement.lang = settings.uiLang;
   }, [settings.uiLang]);
+
+  // Download the models as soon as the page opens (and again when the
+  // engine changes or the connection comes back), so the interpreter is
+  // ready, and cached for offline use, before anyone presses Start.
+  const { prepare } = it;
+  useEffect(() => {
+    prepare();
+    const onOnline = () => prepare();
+    window.addEventListener('online', onOnline);
+    return () => window.removeEventListener('online', onOnline);
+  }, [prepare]);
+
+  // Ask the browser not to evict the ~120 MB of cached models.
+  useEffect(() => {
+    navigator.storage?.persist?.().catch(() => {});
+  }, []);
+
+  const downloadFailed = it.speechModel === 'error' || it.translationModel.state === 'error';
   const voices = useVoices();
   const mics = useMicrophones(it.status);
   const listening = it.status === 'listening';
@@ -224,9 +242,11 @@ export default function App() {
         </button>
         <button onClick={openDisplay}>{t('displayMode')}</button>
         <button onClick={it.clear}>{t('clear')}</button>
-        <button onClick={() => it.prepare()} disabled={it.status !== 'idle'} title={t('prepareTitle')}>
-          {t('prepare')}
-        </button>
+        {downloadFailed && (
+          <button onClick={() => it.prepare()} disabled={it.status !== 'idle'}>
+            {t('retryDownload')}
+          </button>
+        )}
       </section>
 
       {it.error && (

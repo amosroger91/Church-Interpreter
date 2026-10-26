@@ -22,8 +22,7 @@ const STRINGS = {
     exitDisplay: 'Exit display mode',
     listening: 'Listening',
     clear: 'Clear',
-    prepare: '⤓ Prepare for offline',
-    prepareTitle: 'Download models now so it works without internet',
+    retryDownload: '⟳ Retry download',
     placeholder: 'The Spanish interpretation will appear here.',
     testPlaceholder: 'Test without a microphone: type English here and press Enter',
     testLabel: 'Test text',
@@ -54,7 +53,7 @@ const STRINGS = {
     footer:
       "Everything runs on this device — no audio leaves it with the offline engine. Speech: Vosk (WebAssembly). Translation: OPUS-MT English→Spanish (ONNX Runtime Web). Voice: your device's text-to-speech.",
     errNeedsInternet:
-      'The models (about 120 MB) must be downloaded once with an internet connection; after that the interpreter works offline.',
+      'The models (about 120 MB) download automatically the first time the page is opened with internet; after that the interpreter works offline.',
     errMicDenied: 'Microphone permission was denied. Allow microphone access and try again.',
   },
   es: {
@@ -77,8 +76,7 @@ const STRINGS = {
     exitDisplay: 'Salir del modo pantalla',
     listening: 'Escuchando',
     clear: 'Borrar',
-    prepare: '⤓ Preparar para usar sin internet',
-    prepareTitle: 'Descargar los modelos ahora para que funcione sin internet',
+    retryDownload: '⟳ Reintentar la descarga',
     placeholder: 'La interpretación en español aparecerá aquí.',
     testPlaceholder: 'Probar sin micrófono: escriba en inglés aquí y presione Enter',
     testLabel: 'Texto de prueba',
@@ -109,7 +107,7 @@ const STRINGS = {
     footer:
       'Todo funciona en este dispositivo; con el motor sin internet, el audio no sale de él. Voz: Vosk (WebAssembly). Traducción: OPUS-MT inglés→español (ONNX Runtime Web). Lectura: la voz de su dispositivo.',
     errNeedsInternet:
-      'Los modelos (unos 120 MB) deben descargarse una vez con conexión a internet; después el intérprete funciona sin internet.',
+      'Los modelos (unos 120 MB) se descargan automáticamente la primera vez que se abre la página con internet; después el intérprete funciona sin internet.',
     errMicDenied: 'Se negó el permiso del micrófono. Permita el acceso al micrófono e intente de nuevo.',
   },
 };
