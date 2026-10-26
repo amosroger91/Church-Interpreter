@@ -170,6 +170,8 @@ const EN_REWRITES = [
   // the "to", since live translation starts before it is heard.
   [/\bturn\s+with\s+me(\s+in\s+your\s+bibles?)?\b/gi, 'open your Bible with me'],
   [/\bturn\s+(in\s+|to\s+)?(your\s+)(bibles?|hymnals?|hymn\s*books?|songbooks?)\b/gi, (m, i, y, b) => `open your ${b}`],
+  // The model garbles a lowercase "bibles"; capitalize it.
+  [/\bbible(s?)\b/gi, (m, pl) => `Bible${pl}`],
   [/\b(take|taking|took)\s+communion\b/gi, (m, v) => `${v} the Lord's Supper`],
 ];
 
@@ -305,6 +307,10 @@ function capitalizeAfterSentenceStart(text, index, word) {
   return before === '' || /[.!?¿¡]$/.test(before) ? word[0].toUpperCase() + word.slice(1) : word;
 }
 
+// Verbs after which the model's "a Zorxano" stands for "a/an" ("tendremos un
+// convivio"), not "to the".
+const HAVE_VERB = /(?:^|[^\p{L}])(ten(?:er|emos|dremos|drá|drán|drás|go|ía|íamos)|tiene|tienen|habrá|hay|haremos|hacemos|hará|harán|celebr\p{L}*|organiz\p{L}*|prepar\p{L}*)$/iu;
+
 /** Replace placeholders with the preferred terms and apply output fixes. */
 export function restoreGlossary(text, direction) {
   let t = text;
@@ -322,10 +328,13 @@ export function restoreGlossary(text, direction) {
           phrase = `${p ? `${matchCase(p, prep || det)} ` : ''}${outputOf(term, 'es')}`;
         } else if (det) {
           phrase = `${prep ? `${prep} ` : ''}${spanishWithArticle(det, term)}`;
+        } else if (prep === 'a' && HAVE_VERB.test(all.slice(0, start).trimEnd())) {
+          // "tendremos a Zorxano": the model took the made-up name for a
+          // person; with "have/hold" verbs it means "a/an".
+          phrase = spanishWithArticle('un', term);
         } else if (prep || /[.!?¿¡]\s*$|^\s*$/.test(all.slice(0, start))) {
-          // The model sometimes treats the made-up name as a person ("tener a
-          // Zorbenta") or leaves it bare at the start of a sentence; give it
-          // the article Spanish needs.
+          // Otherwise "a Zorxano" means "to the" ("vengan al convivio"), and
+          // at the start of a sentence Spanish needs the article.
           phrase = spanishWithArticle(prep === 'a' ? 'al' : prep === 'de' ? 'del' : 'el', term);
         } else {
           phrase = outputOf(term, 'es');

@@ -30,7 +30,8 @@ describe('glossary (English -> Spanish)', () => {
     );
     // Bare at the start of a sentence, or after a "personal a", it gets an article.
     expect(restoreGlossary(`${campaña} empieza el lunes.`, 'en-es')).toBe('La campaña de avivamiento empieza el lunes.');
-    expect(restoreGlossary(`Vamos a tener a ${campaña}.`, 'en-es')).toBe('Vamos a tener a la campaña de avivamiento.');
+    expect(restoreGlossary(`Vamos a tener a ${campaña}.`, 'en-es')).toBe('Vamos a tener una campaña de avivamiento.');
+    expect(restoreGlossary(`Inviten a sus amigos a ${campaña}.`, 'en-es')).toBe('Inviten a sus amigos a la campaña de avivamiento.');
   });
 
   it('finds placeholders even if the model changes their ending', () => {
