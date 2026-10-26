@@ -41,6 +41,14 @@ research.
 The **classic fragments** mode (`src/lib/chunker.js`) translates each 3–7
 word chunk independently. It has the least delay but loses context.
 
+**Prayers and creeds.** When the speaker leads the Lord's Prayer, the
+Gloria Patri, the Doxology or the Apostles' Creed, the app recognizes it
+after about five words (`src/lib/liturgy.js`). It then shows and speaks the
+standard Spanish wording line by line, instead of a machine translation of
+a text people know by heart. Small wording differences ("debts" /
+"trespasses") are tolerated. If the speaker leaves the text, normal
+translation resumes.
+
 **Church vocabulary.** Before translation, words like *God, Jesus, Lord, Holy
 Spirit*, biblical names and book names are capitalized
 (`src/lib/text.js`). That way the translator renders them as *Dios, Jesús,
