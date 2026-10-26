@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { applyGlossary, restoreGlossary, placeholderName, isPlaceholder, TERMS } from './glossary.js';
 
 // Stand-in for the translation model: placeholders pass through unchanged.
-const ph = (en) => placeholderName(TERMS.findIndex((t) => t.en.includes(en)));
+const ph = (en, dir = 'en-es') => placeholderName(TERMS.findIndex((t) => t.en.includes(en)), dir);
 
 describe('glossary (English -> Spanish)', () => {
   it('swaps church terms for placeholders, longest phrase first', () => {
@@ -53,7 +53,7 @@ describe('glossary (English -> Spanish)', () => {
 describe('Bible books', () => {
   it('uses the Spanish book name without an article', () => {
     const src = applyGlossary('open your bible with me to first corinthians chapter thirteen', 'en-es');
-    const book = src.split(' ').find(isPlaceholder);
+    const book = src.split(' ').find((w) => isPlaceholder(w));
     expect(restoreGlossary(`Abre tu Biblia conmigo a los ${book} capítulo trece`, 'en-es')).toBe(
       'Abre tu Biblia conmigo a Primera de Corintios capítulo trece',
     );
@@ -67,7 +67,7 @@ describe('Bible books', () => {
 describe('glossary (Spanish -> English)', () => {
   it('recognizes Spanish church terms, ignoring accents', () => {
     const out = applyGlossary('gracias al conjunto y a los ujieres por el culto de oracion', 'es-en');
-    expect(out).toBe(`gracias al ${ph('praise team')} y a los ${ph('ushers')} por el ${ph('prayer meeting')}`);
+    expect(out).toBe(`gracias al ${ph('praise team', 'es-en')} y a los ${ph('ushers', 'es-en')} por el ${ph('prayer meeting', 'es-en')}`);
   });
 
   it('leaves ordinary uses alone', () => {
@@ -75,7 +75,7 @@ describe('glossary (Spanish -> English)', () => {
   });
 
   it('restores English terms and fixes a/an', () => {
-    expect(restoreGlossary(`We thank the ${ph('praise team')} and a ${ph('usher')}.`, 'es-en')).toBe(
+    expect(restoreGlossary(`We thank the ${ph('praise team', 'es-en')} and a ${ph('usher', 'es-en')}.`, 'es-en')).toBe(
       'We thank the praise team and an usher.',
     );
     expect(restoreGlossary('Join us for the cult on Sunday. Who says amen?.', 'es-en')).toBe(

@@ -206,19 +206,30 @@ const EN_POST = [
   [/\b(brother|sister)\s+([A-Z])/g, (m, w, c) => `${w[0].toUpperCase()}${w.slice(1)} ${c}`],
 ];
 
-// Made-up names the translation models copy unchanged ("Zorxano"). The
-// stem ("Zorxa") is unique to each term and contains an "x" that no real
-// word has there, so it can be found even if the model changes the ending.
-// Endings follow the term's Spanish gender and number (-no/-na/-nos/-nas),
-// so the model makes adjectives and verbs agree; Bible books end in "-x".
+// Made-up names the translation models copy unchanged. Each model has its
+// own preference (checked with eval/probe-placeholders.mjs):
+// - English -> Spanish: "Zorxano". The stem ("Zorxa") is unique to each term
+//   and has an "x" no real word has there, so it is found even if the model
+//   changes the ending. Endings follow the term's Spanish gender and number
+//   (-no/-na/-nos/-nas), so the model makes adjectives and verbs agree;
+//   Bible books end in "-x".
+// - Spanish -> English: "Qorvix". That model rewrites names like "Zorxano"
+//   ("bruxano") but copies Q- names intact.
 const PH_A = ['Zor', 'Kel', 'Dor', 'Mor', 'Tol', 'Quen', 'Lar', 'Bril', 'Fen', 'Gal', 'Hor', 'Jal', 'Nor', 'Pem', 'Ral', 'Sor', 'Tam', 'Vel', 'Yal', 'Zan'];
 const PH_C = ['a', 'e', 'i', 'o', 'u', 'al', 'el', 'il'];
 const PH_END = { ms: 'no', fs: 'na', mp: 'nos', fp: 'nas', name: 'x' };
-function placeholderStem(i) {
+const Q_A = ['or', 'el', 'an', 'om', 'ul', 'ar', 'en', 'il', 'ob', 'ad'];
+const Q_B = ['v', 'b', 'dr', 'w', 'l', 'm', 't', 'n', 'z', 'k', 'g', 'p', 'f', 's'];
+
+function placeholderStem(i, direction = 'en-es') {
+  if (direction === 'es-en') return `Q${Q_A[i % Q_A.length]}${Q_B[Math.floor(i / Q_A.length) % Q_B.length]}`;
   return `${PH_A[i % PH_A.length]}x${PH_C[Math.floor(i / PH_A.length) % PH_C.length]}`;
 }
-export function placeholderName(i, term = TERMS[i]) {
-  return placeholderStem(i) + PH_END[term?.name ? 'name' : `${term?.g || 'm'}${term?.n || 's'}`];
+
+export function placeholderName(i, direction = 'en-es') {
+  if (direction === 'es-en') return `${placeholderStem(i, direction)}ix`;
+  const term = TERMS[i];
+  return placeholderStem(i, direction) + PH_END[term.name ? 'name' : `${term.g || 'm'}${term.n || 's'}`];
 }
 
 function accentInsensitive(s) {
@@ -244,7 +255,7 @@ function compile(direction) {
     for (const p of term[from]) {
       const { re, keep } = phraseRegex(p, from);
       const len = typeof p === 'object' ? p.re.length : p.length;
-      rules.push({ re, keep, custom: typeof p === 'object', term, ph: placeholderName(i), len });
+      rules.push({ re, keep, custom: typeof p === 'object', term, ph: placeholderName(i, direction), len });
     }
   });
   // Longest phrases first ("praise and worship team" before "worship team").
@@ -253,13 +264,15 @@ function compile(direction) {
 }
 
 const COMPILED = { 'en-es': compile('en-es'), 'es-en': compile('es-en') };
-const STEMS = TERMS.map((t, i) => [placeholderStem(i).toLowerCase(), t]).sort((a, b) => b[0].length - a[0].length);
+const stemsFor = (direction) =>
+  TERMS.map((t, i) => [placeholderStem(i, direction).toLowerCase(), t]).sort((a, b) => b[0].length - a[0].length);
+const STEMS = { 'en-es': stemsFor('en-es'), 'es-en': stemsFor('es-en') };
 
 /** The glossary term a (possibly altered) placeholder word stands for. */
-function termFor(word) {
+function termFor(word, direction = 'en-es') {
   const w = word.toLowerCase();
-  if (!w.includes('x')) return undefined;
-  return STEMS.find(([stem]) => w.startsWith(stem))?.[1];
+  if (direction === 'es-en' ? !w.startsWith('q') : !w.includes('x')) return undefined;
+  return STEMS[direction].find(([stem]) => w.startsWith(stem))?.[1];
 }
 
 /** Rewrite the source text and swap glossary terms for placeholders. */
@@ -318,7 +331,7 @@ export function restoreGlossary(text, direction) {
     t = t.replace(
       /(^|[^\p{L}])(?:(a|de)\s+)?(?:(el|la|los|las|al|del|un|una|unos|unas)\s+)?([A-Z][a-z]+)(?![\p{L}])/giu,
       (m, pre, prep, det, w, idx, all) => {
-        const term = termFor(w);
+        const term = termFor(w, 'en-es');
         if (!term) return m;
         const start = idx + pre.length;
         let phrase;
@@ -345,7 +358,7 @@ export function restoreGlossary(text, direction) {
     for (const [re, rep] of ES_POST) t = t.replace(re, rep);
   } else {
     t = t.replace(/(^|[^\p{L}])(?:(a|an|the)\s+)?([A-Z][a-z]+)(?![\p{L}])/giu, (m, pre, det, w, idx, all) => {
-      const term = termFor(w);
+      const term = termFor(w, 'es-en');
       if (!term) return m;
       const out = outputOf(term, 'en');
       let phrase;
@@ -360,6 +373,6 @@ export function restoreGlossary(text, direction) {
 }
 
 /** Placeholder names, so callers can tell them apart from real words. */
-export function isPlaceholder(word) {
-  return Boolean(termFor(word));
+export function isPlaceholder(word, direction = 'en-es') {
+  return Boolean(termFor(word, direction));
 }
