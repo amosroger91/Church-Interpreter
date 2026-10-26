@@ -185,6 +185,17 @@ export default function App() {
         <div className="meter" aria-hidden>
           <div style={{ width: `${Math.round(it.level * 100)}%` }} />
         </div>
+        <button
+          className={`toggle ${settings.speak ? 'on' : ''}`}
+          onClick={() => {
+            if (!settings.speak) it.speaker.unlock();
+            set({ speak: !settings.speak });
+          }}
+          aria-pressed={settings.speak}
+          title="Read the Spanish translation out loud"
+        >
+          {settings.speak ? '🔊 Voice on' : '🔇 Voice off'}
+        </button>
         <button onClick={openDisplay}>⛶ Display mode</button>
         <button onClick={it.clear}>Clear</button>
         <button onClick={() => it.prepare()} disabled={it.status !== 'idle'} title="Download models now so it works without internet">

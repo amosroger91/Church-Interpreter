@@ -218,6 +218,7 @@ export function useInterpreter(settings) {
   }, [loadSpeech, settings.engine, translator]);
 
   const start = useCallback(async () => {
+    speaker.unlock();
     setError(null);
     setStatus('loading');
     if (!(await prepare())) {
@@ -244,7 +245,7 @@ export function useInterpreter(settings) {
       );
       setStatus('idle');
     }
-  }, [prepare, settings.engine, settings.deviceId, onPartial, onFinal]);
+  }, [prepare, settings.engine, settings.deviceId, onPartial, onFinal, speaker]);
 
   const stop = useCallback(() => {
     engineRef.current?.stop();
@@ -268,6 +269,7 @@ export function useInterpreter(settings) {
   /** Type-to-test: streams typed English word by word like live speech. */
   const simulate = useCallback(
     async (text) => {
+      speaker.unlock();
       if (!(await prepare({ speech: false }))) return;
       const words = text.trim().split(/\s+/).filter(Boolean);
       for (let i = 1; i <= words.length; i++) {
@@ -276,7 +278,7 @@ export function useInterpreter(settings) {
       }
       onFinal(words.join(' '));
     },
-    [prepare, onPartial, onFinal],
+    [prepare, onPartial, onFinal, speaker],
   );
 
   useEffect(() => () => engineRef.current?.stop(), []);

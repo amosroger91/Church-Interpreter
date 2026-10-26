@@ -112,6 +112,12 @@ button:disabled {
   cursor: default;
 }
 
+button.toggle.on {
+  border-color: var(--ok);
+  color: var(--ok);
+  font-weight: 600;
+}
+
 button.primary {
   background: var(--accent);
   color: var(--accent-text);
@@ -318,7 +324,13 @@ footer {
   .captions {
     padding: 14px 16px;
   }
-  button.primary {
+  button.toggle.on {
+  border-color: var(--ok);
+  color: var(--ok);
+  font-weight: 600;
+}
+
+button.primary {
     width: 100%;
   }
 }

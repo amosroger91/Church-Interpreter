@@ -1,21 +1,22 @@
-name: Deploy to GitHub Pages
+name: Build site
 
+# GitHub Pages serves the root of `main`. When the source changes, rebuild
+# the site and commit the built files (index.html, assets/, sw.js, ...) to
+# the repository root.
 on:
   push:
     branches: [main]
   workflow_dispatch:
 
-# Publishes the built site to the `gh-pages` branch. GitHub Pages serves
-# that branch (Settings -> Pages -> Deploy from a branch -> gh-pages).
 permissions:
   contents: write
 
 concurrency:
-  group: pages
+  group: build-site
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,15 +26,16 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
-      - name: Cache models
-        uses: actions/cache@v4
-        with:
-          path: public/models
-          key: models-${{ hashFiles('scripts/fetch-models.mjs') }}
-      - run: npm run fetch-models
       - run: npm run build
-      - uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./dist
-          force_orphan: true
+      - run: npm run publish-site
+      - name: Commit built site
+        run: |
+          git add -A index.html assets sw.js manifest.webmanifest icon.svg .nojekyll workbox-*.js
+          if git diff --cached --quiet; then
+            echo "Built site is up to date."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "Build site"
+            git push
+          fi

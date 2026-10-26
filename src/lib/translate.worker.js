@@ -3,6 +3,12 @@
 // with ONNX Runtime Web (WebAssembly). Works fully offline once cached.
 import { env, AutoTokenizer, AutoModelForSeq2SeqLM } from '@huggingface/transformers';
 import { SimulTranslator } from './simul.js';
+// ONNX Runtime's WebAssembly files, bundled with the app (instead of the
+// CDN transformers.js would use) so they are cached for offline use.
+import ortAsyncifyMjs from 'onnxruntime-web/ort-wasm-simd-threaded.asyncify.mjs?url';
+import ortAsyncifyWasm from 'onnxruntime-web/ort-wasm-simd-threaded.asyncify.wasm?url';
+import ortPlainMjs from 'onnxruntime-web/ort-wasm-simd-threaded.mjs?url';
+import ortPlainWasm from 'onnxruntime-web/ort-wasm-simd-threaded.wasm?url';
 
 let translator = null;
 let loading = null;
@@ -19,8 +25,14 @@ async function configure({ baseUrl, modelId }) {
     const res = await fetch(`${selfHosted}${modelId}/config.json`, { method: 'HEAD' });
     useSelfHosted = res.ok && !(res.headers.get('content-type') || '').includes('text/html');
   } catch {
-    // offline: rely on the browser cache, which is keyed by the URLs below
-    useSelfHosted = true;
+    // Offline: use whichever copy was cached when the app was last online
+    // (the browser cache is keyed by URL).
+    try {
+      const cache = await caches.open('transformers-cache');
+      useSelfHosted = Boolean(await cache.match(`${selfHosted}${modelId}/config.json`));
+    } catch {
+      useSelfHosted = false;
+    }
   }
   env.allowLocalModels = false;
   env.allowRemoteModels = true;
@@ -29,15 +41,12 @@ async function configure({ baseUrl, modelId }) {
     env.remoteHost = selfHosted;
     env.remotePathTemplate = '{model}/';
   }
-  // Load the ONNX Runtime WebAssembly binary from our own site instead of a
-  // CDN (same build selection transformers.js makes by default).
+  // Same build selection transformers.js makes by default.
   const ua = self.navigator?.userAgent || '';
   const oldSafari = /Safari/.test(ua) && !/Chrome|Chromium|Edg/.test(ua) && !self.navigator?.gpu;
-  const name = oldSafari ? 'ort-wasm-simd-threaded' : 'ort-wasm-simd-threaded.asyncify';
-  env.backends.onnx.wasm.wasmPaths = {
-    mjs: new URL(`ort/${name}.mjs`, baseUrl).href,
-    wasm: new URL(`ort/${name}.wasm`, baseUrl).href,
-  };
+  env.backends.onnx.wasm.wasmPaths = oldSafari
+    ? { mjs: new URL(ortPlainMjs, self.location.href).href, wasm: new URL(ortPlainWasm, self.location.href).href }
+    : { mjs: new URL(ortAsyncifyMjs, self.location.href).href, wasm: new URL(ortAsyncifyWasm, self.location.href).href };
 }
 
 async function load(msg) {

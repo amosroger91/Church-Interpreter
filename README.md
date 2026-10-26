@@ -75,7 +75,7 @@ To test without a microphone, type English into the box under the captions.
 
 ```bash
 npm install
-npm run fetch-models   # optional: download models into public/models/
+npm run fetch-models   # optional: serve models locally (needed for npm run eval)
 npm run dev            # http://localhost:5173
 npm test
 npm run eval           # quality/latency benchmark (needs fetch-models)
@@ -83,7 +83,7 @@ npm run build          # static site in dist/
 ```
 
 If you skip `fetch-models`, the app downloads the models from Hugging Face and
-the vosk-browser demo site the first time instead.
+the vosk-browser demo site the first time instead (as the deployed site does).
 
 ## Measuring quality
 
@@ -97,10 +97,19 @@ church's passages to the JSON file to tune it for your services. The
 
 ## Deploying to GitHub Pages
 
-The `.github/workflows/deploy.yml` workflow tests, downloads the models,
-builds, and publishes the site to the `gh-pages` branch on every push to
-`main`. One-time setup: **Settings → Pages → Build and deployment → Deploy
-from a branch → `gh-pages` / root**.
+GitHub Pages serves the root of the `main` branch (**Settings → Pages →
+Deploy from a branch → `main` / root**). The app's source is in `src/`. The
+built site (`index.html`, `assets/`, `sw.js`, …) is committed at the
+repository root. The *Build site* workflow (`.github/workflows/deploy.yml`)
+rebuilds and commits it after every push to `main`. To do the same by hand:
+
+```bash
+npm run build && npm run publish-site
+```
+
+The models are not committed (too large for git). On first use the app
+downloads them from Hugging Face and the vosk-browser site, then caches them
+for offline use.
 
 ## Limitations
 
