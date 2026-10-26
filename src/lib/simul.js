@@ -61,10 +61,16 @@ export class SimulTranslator {
    * @param {number} [opts.minSourceWords] English words a segment needs before
    *   anything is committed (the first words of a sentence are the most
    *   ambiguous, e.g. "for God" -> "Por Dios" vs. "Porque Dios")
+   * @param {(text: string) => string} [opts.postprocess] applied to every
+   *   decoded translation (e.g. the church glossary)
+   * @param {Set<string>} [opts.holdWords] words a commit never ends on
+   *   (articles, whose form can depend on the next word)
    */
-  constructor({ tokenizer, model, ...options }) {
+  constructor({ tokenizer, model, postprocess, holdWords, ...options }) {
     this.tokenizer = tokenizer;
     this.model = model;
+    this.postprocess = postprocess || ((t) => t);
+    this.holdWords = holdWords || new Set();
     this.configure({ ...SIMUL_DEFAULTS, ...options });
     const cfg = model.config || {};
     this.startId = cfg.decoder_start_token_id ?? cfg.pad_token_id ?? 0;
@@ -100,9 +106,24 @@ export class SimulTranslator {
     return SENTENCE_END.test(this.idToToken[id] || '');
   }
 
-  decode(ids) {
+  rawDecode(ids) {
     if (ids.length === 0) return '';
     return this.tokenizer.decode(ids, { skip_special_tokens: true }).trim();
+  }
+
+  decode(ids) {
+    return this.postprocess(this.rawDecode(ids));
+  }
+
+  /** Move a commit cut back so it doesn't end on a hold word. */
+  _avoidHoldWords(cont, k) {
+    while (k > 0) {
+      let start = k - 1;
+      while (start > 0 && !this.isWordStart(cont[start])) start--;
+      if (!this.holdWords.has(this.rawDecode(cont.slice(start, k)).toLowerCase())) break;
+      k = start;
+    }
+    return k;
   }
 
   async _generate(source, prefix) {
@@ -166,7 +187,7 @@ export class SimulTranslator {
         enoughContext && seg.history.length >= this.agreeDepth - 1
           ? agreedCommitLength(seg.history, cont, this.isWordStart, { holdBackWords: this.holdBackWords })
           : 0;
-      commit = cont.slice(0, k);
+      commit = cont.slice(0, this._avoidHoldWords(cont, k));
     }
 
     const before = this.decode(seg.committed);

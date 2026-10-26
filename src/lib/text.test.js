@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { prepareEnglish, tidySpanish } from './text.js';
+import { prepareEnglish, prepareSpanish, tidySpanish } from './text.js';
 
 describe('prepareEnglish', () => {
   it('capitalizes church proper nouns and the sentence start', () => {
@@ -17,5 +17,13 @@ describe('tidySpanish', () => {
   it('drops the period the translator adds to unfinished fragments', () => {
     expect(tidySpanish('Porque Dios amó tanto al mundo.')).toBe('Porque Dios amó tanto al mundo');
     expect(tidySpanish('Amén.', { final: true })).toBe('Amén.');
+  });
+});
+
+describe('prepareSpanish', () => {
+  it('capitalizes church proper nouns and fixes their accents', () => {
+    expect(prepareSpanish('el señor jesus y el espiritu santo en romanos', { start: true })).toBe(
+      'El Señor Jesús y el Espíritu Santo en Romanos',
+    );
   });
 });

@@ -39,12 +39,48 @@ export function prepareEnglish(text, { start = false } = {}) {
   return t;
 }
 
+// Spanish words that are capitalized in church usage, matched with or
+// without accents (speech recognizers are inconsistent about them).
+const ES_PROPER = [
+  'espíritu santo', 'jesucristo', 'jesús', 'cristo', 'dios', 'biblia', 'mesías',
+  'israel', 'jerusalén', 'belén', 'nazaret', 'galilea', 'egipto',
+  'maría', 'josé', 'pedro', 'pablo', 'moisés', 'abraham', 'isaac', 'jacob', 'david',
+  'salomón', 'noé', 'adán', 'elías',
+  'génesis', 'éxodo', 'levítico', 'deuteronomio', 'salmos', 'salmo', 'proverbios',
+  'isaías', 'jeremías', 'ezequiel', 'mateo', 'marcos', 'lucas', 'romanos',
+  'corintios', 'gálatas', 'efesios', 'filipenses', 'colosenses', 'hebreos',
+  'apocalipsis', 'pascua', 'navidad', 'pentecostés',
+];
+const stripAccents = (w) => w.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+const ES_PROPER_MAP = new Map(ES_PROPER.map((w) => [stripAccents(w), w]));
+const ES_PROPER_RE = new RegExp(
+  `(^|[^\\p{L}])(${[...ES_PROPER_MAP.keys()].sort((a, b) => b.length - a.length).map((w) => w.replace(/[aeiou]/g, (c) => `[${c}${'áéíóú'['aeiou'.indexOf(c)]}]`).replace(/ /g, '\\s+')).join('|')})(?![\\p{L}])`,
+  'giu',
+);
+
+/** Prepare a Spanish chunk for the translator (capitalization, accents). */
+export function prepareSpanish(text, { start = false } = {}) {
+  let t = text.trim().replace(/\s+/g, ' ');
+  if (!t) return t;
+  t = t.replace(ES_PROPER_RE, (m, pre, w) => {
+    const canonical = ES_PROPER_MAP.get(stripAccents(w.toLowerCase()).replace(/\s+/g, ' ')) || w;
+    return pre + canonical.replace(/(^|\s)\p{L}/gu, (c) => c.toUpperCase());
+  });
+  // "el señor" in church speech is the Lord.
+  t = t.replace(/\b(el|al|del|nuestro|oh|mi)\s+señor\b/giu, (m, d) => `${d} Señor`);
+  if (start) t = t[0].toUpperCase() + t.slice(1);
+  return t;
+}
+
 /**
  * Tidy a translated fragment. Fragment translators tend to add a final
  * period to everything; drop it unless the speaker actually finished.
  */
-export function tidySpanish(text, { final = false } = {}) {
+export function tidyTarget(text, { final = false } = {}) {
   let t = (text || '').trim().replace(/\s+/g, ' ');
   if (!final) t = t.replace(/[.。]+$/, '');
   return t;
 }
+
+/** @deprecated use tidyTarget */
+export const tidySpanish = tidyTarget;
