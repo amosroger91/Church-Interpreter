@@ -6,7 +6,6 @@ import { openLevelMeter } from './microphone.js';
 const SR = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition);
 
 export class WebSpeechEngine {
-  static label = 'Navegador (Web Speech, requiere internet)';
   static supported = Boolean(SR);
 
   constructor({ onPartial, onFinal, onLevel, onError }) {

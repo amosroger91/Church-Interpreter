@@ -18,15 +18,12 @@ export const ENGINES = {
 // SIMUL_PACES; in classic mode, the chunk size (smaller = less delay, larger
 // = more context for the translator = better Spanish).
 export const PACES = {
-  fast: { label: 'Fast (least delay)', minWords: 2, maxWords: 5, maxWaitMs: 800 },
-  balanced: { label: 'Balanced (best quality)', minWords: 3, maxWords: 7, maxWaitMs: 1200 },
+  fast: { minWords: 2, maxWords: 5, maxWaitMs: 800 },
+  balanced: { minWords: 3, maxWords: 7, maxWaitMs: 1200 },
 };
 
-// How the English is fed to the translator.
-export const MODES = {
-  simul: 'Sentence-aware (recommended)',
-  fragment: 'Classic fragments',
-};
+// How the English is fed to the translator (labels are in src/i18n.js).
+export const MODES = { simul: true, fragment: true };
 
 const MAX_LINES = 200;
 
@@ -208,10 +205,11 @@ export function useInterpreter(settings) {
       return true;
     } catch (e) {
       const msg = e.message || String(e);
+      // Errors are { code, detail }; the UI shows `code` in its language.
       setError(
         navigator.onLine === false || /fetch|network/i.test(msg)
-          ? `${msg} — The models (about 120 MB) must be downloaded once with an internet connection; after that the interpreter works offline.`
-          : msg,
+          ? { code: 'errNeedsInternet', detail: msg }
+          : { detail: msg },
       );
       return false;
     }
@@ -230,7 +228,7 @@ export function useInterpreter(settings) {
       onPartial,
       onFinal,
       onLevel: (rms) => setLevel(Math.min(1, rms * 6)),
-      onError: (e) => setError(e.message),
+      onError: (e) => setError({ detail: e.message }),
     });
     try {
       await engine.start({ deviceId: settings.deviceId || undefined });
@@ -238,11 +236,7 @@ export function useInterpreter(settings) {
       setStatus('listening');
     } catch (e) {
       engine.stop();
-      setError(
-        e.name === 'NotAllowedError'
-          ? 'Microphone permission was denied. Allow microphone access and try again.'
-          : e.message || String(e),
-      );
+      setError(e.name === 'NotAllowedError' ? { code: 'errMicDenied' } : { detail: e.message || String(e) });
       setStatus('idle');
     }
   }, [prepare, settings.engine, settings.deviceId, onPartial, onFinal, speaker]);

@@ -48,7 +48,6 @@ export class VoskEngine {
     this.recognizer = null;
   }
 
-  static label = 'Offline (Vosk, sin internet)';
 
   load() {
     return loadVoskModel();

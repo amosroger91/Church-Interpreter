@@ -1,0 +1,130 @@
+// Interface text in English and Spanish. The captions are always Spanish;
+// this only changes the buttons, settings and messages around them.
+
+const STRINGS = {
+  en: {
+    subtitle: 'Live English → Spanish church interpreter · works offline',
+    language: 'Language',
+    speech: 'Speech',
+    translation: 'Translation',
+    notLoaded: 'not loaded',
+    loading: 'loading…',
+    downloading: 'downloading {pct}%',
+    ready: 'ready ✓',
+    failed: 'failed',
+    start: '● Start interpreting',
+    stop: '■ Stop',
+    loadingModels: 'Loading models…',
+    voiceOn: '🔊 Voice on',
+    voiceOff: '🔇 Voice off',
+    voiceTitle: 'Read the Spanish translation out loud',
+    displayMode: '⛶ Display mode',
+    exitDisplay: 'Exit display mode',
+    listening: 'Listening',
+    clear: 'Clear',
+    prepare: '⤓ Prepare for offline',
+    prepareTitle: 'Download models now so it works without internet',
+    placeholder: 'The Spanish interpretation will appear here.',
+    testPlaceholder: 'Test without a microphone: type English here and press Enter',
+    testLabel: 'Test text',
+    send: 'Send',
+    settings: 'Settings',
+    engine: 'Speech recognition',
+    engineVosk: 'Offline (Vosk, no internet needed)',
+    engineWebspeech: 'Browser (Web Speech, needs internet)',
+    microphone: 'Microphone',
+    defaultMic: 'Default microphone',
+    mic: 'Microphone',
+    mode: 'Translation mode',
+    modeSimul: 'Sentence-aware (recommended)',
+    modeFragment: 'Classic fragments',
+    liturgy: "Use standard Spanish wording for the Lord's Prayer, Gloria, Doxology and Apostles' Creed",
+    pace: 'Pace',
+    paceFast: 'Fast (least delay)',
+    paceBalanced: 'Balanced (best quality)',
+    speakAloud: 'Speak Spanish aloud (use headphones or a transmitter to avoid feedback)',
+    voice: 'Spanish voice',
+    automatic: 'Automatic',
+    offlineVoice: ' · offline',
+    voiceSpeed: 'Voice speed: {rate}×',
+    textSize: 'Text size: {size}px',
+    showEnglish: 'Show English transcript',
+    lastTranslation: 'Last translation: {ms} ms',
+    caughtUp: ' (caught up {n} chunks)',
+    footer:
+      "Everything runs on this device — no audio leaves it with the offline engine. Speech: Vosk (WebAssembly). Translation: OPUS-MT English→Spanish (ONNX Runtime Web). Voice: your device's text-to-speech.",
+    errNeedsInternet:
+      'The models (about 120 MB) must be downloaded once with an internet connection; after that the interpreter works offline.',
+    errMicDenied: 'Microphone permission was denied. Allow microphone access and try again.',
+  },
+  es: {
+    subtitle: 'Intérprete de inglés a español en vivo para la iglesia · funciona sin internet',
+    language: 'Idioma',
+    speech: 'Reconocimiento de voz',
+    translation: 'Traducción',
+    notLoaded: 'sin cargar',
+    loading: 'cargando…',
+    downloading: 'descargando {pct}%',
+    ready: 'listo ✓',
+    failed: 'error',
+    start: '● Comenzar a interpretar',
+    stop: '■ Detener',
+    loadingModels: 'Cargando modelos…',
+    voiceOn: '🔊 Voz activada',
+    voiceOff: '🔇 Voz desactivada',
+    voiceTitle: 'Leer la traducción en voz alta',
+    displayMode: '⛶ Modo pantalla',
+    exitDisplay: 'Salir del modo pantalla',
+    listening: 'Escuchando',
+    clear: 'Borrar',
+    prepare: '⤓ Preparar para usar sin internet',
+    prepareTitle: 'Descargar los modelos ahora para que funcione sin internet',
+    placeholder: 'La interpretación en español aparecerá aquí.',
+    testPlaceholder: 'Probar sin micrófono: escriba en inglés aquí y presione Enter',
+    testLabel: 'Texto de prueba',
+    send: 'Enviar',
+    settings: 'Configuración',
+    engine: 'Reconocimiento de voz',
+    engineVosk: 'Sin internet (Vosk)',
+    engineWebspeech: 'Navegador (Web Speech, requiere internet)',
+    microphone: 'Micrófono',
+    defaultMic: 'Micrófono predeterminado',
+    mic: 'Micrófono',
+    mode: 'Modo de traducción',
+    modeSimul: 'Por oraciones (recomendado)',
+    modeFragment: 'Fragmentos (clásico)',
+    liturgy: 'Usar el texto tradicional en español del Padre Nuestro, el Gloria, la Doxología y el Credo',
+    pace: 'Ritmo',
+    paceFast: 'Rápido (menos retraso)',
+    paceBalanced: 'Equilibrado (mejor calidad)',
+    speakAloud: 'Leer el español en voz alta (use audífonos o un transmisor para evitar eco)',
+    voice: 'Voz en español',
+    automatic: 'Automática',
+    offlineVoice: ' · sin internet',
+    voiceSpeed: 'Velocidad de la voz: {rate}×',
+    textSize: 'Tamaño del texto: {size}px',
+    showEnglish: 'Mostrar la transcripción en inglés',
+    lastTranslation: 'Última traducción: {ms} ms',
+    caughtUp: ' ({n} fragmentos combinados)',
+    footer:
+      'Todo funciona en este dispositivo; con el motor sin internet, el audio no sale de él. Voz: Vosk (WebAssembly). Traducción: OPUS-MT inglés→español (ONNX Runtime Web). Lectura: la voz de su dispositivo.',
+    errNeedsInternet:
+      'Los modelos (unos 120 MB) deben descargarse una vez con conexión a internet; después el intérprete funciona sin internet.',
+    errMicDenied: 'Se negó el permiso del micrófono. Permita el acceso al micrófono e intente de nuevo.',
+  },
+};
+
+export const LANGUAGES = { en: 'English', es: 'Español' };
+
+export function defaultLanguage() {
+  const langs = typeof navigator === 'undefined' ? [] : navigator.languages || [navigator.language];
+  return langs.some((l) => l?.toLowerCase().startsWith('es')) ? 'es' : 'en';
+}
+
+export function translator(lang) {
+  const table = STRINGS[lang] || STRINGS.en;
+  return (key, vars = {}) =>
+    (table[key] ?? STRINGS.en[key] ?? key).replace(/\{(\w+)\}/g, (_, k) => String(vars[k] ?? ''));
+}
+
+export { STRINGS };

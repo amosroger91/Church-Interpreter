@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { ENGINES, MODES, PACES, useInterpreter } from './useInterpreter.js';
 import { listSpanishVoices } from './lib/speaker.js';
+import { LANGUAGES, defaultLanguage, translator } from './i18n.js';
 
 const DEFAULTS = {
+  uiLang: defaultLanguage(),
   engine: 'vosk',
   mode: 'simul',
   liturgy: true,
@@ -66,14 +68,14 @@ function useMicrophones(refreshKey) {
   return mics;
 }
 
-function ModelBadge({ label, state, progress }) {
-  let text = 'not loaded';
+function ModelBadge({ t, label, state, progress }) {
+  let text = t('notLoaded');
   if (state === 'loading') {
     text = progress?.total
-      ? `downloading ${Math.round((100 * progress.loaded) / progress.total)}%`
-      : 'loading…';
-  } else if (state === 'ready') text = 'ready ✓';
-  else if (state === 'error') text = 'failed';
+      ? t('downloading', { pct: Math.round((100 * progress.loaded) / progress.total) })
+      : t('loading');
+  } else if (state === 'ready') text = t('ready');
+  else if (state === 'error') text = t('failed');
   return (
     <span className={`badge badge-${state}`}>
       {label}: {text}
@@ -81,7 +83,7 @@ function ModelBadge({ label, state, progress }) {
   );
 }
 
-function Captions({ lines, live, fontSize, showEnglish, big }) {
+function Captions({ t, lines, live, fontSize, showEnglish, big }) {
   const endRef = useRef(null);
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: 'end' });
@@ -90,7 +92,7 @@ function Captions({ lines, live, fontSize, showEnglish, big }) {
   return (
     <div className={`captions ${big ? 'captions-big' : ''}`} style={{ fontSize }} aria-live="polite">
       {visible.length === 0 && !live.pending && (
-        <p className="placeholder">La interpretación en español aparecerá aquí.</p>
+        <p className="placeholder">{t('placeholder')}</p>
       )}
       {visible.map((l, i) => (
         <div key={l.id} className={`line ${i === visible.length - 1 ? 'line-current' : ''} ${l.liturgy ? 'line-liturgy' : ''}`}>
@@ -126,6 +128,11 @@ export default function App() {
   }, [settings]);
 
   const it = useInterpreter(settings);
+  const t = translator(settings.uiLang);
+
+  useEffect(() => {
+    document.documentElement.lang = settings.uiLang;
+  }, [settings.uiLang]);
   const voices = useVoices();
   const mics = useMicrophones(it.status);
   const listening = it.status === 'listening';
@@ -149,11 +156,11 @@ export default function App() {
   if (display) {
     return (
       <div className="display" onDoubleClick={closeDisplay}>
-        <Captions lines={it.lines} live={it.live} fontSize={settings.fontSize * 1.4} showEnglish={false} big />
-        <button className="display-exit" onClick={closeDisplay} aria-label="Exit display mode">
+        <Captions t={t} lines={it.lines} live={it.live} fontSize={settings.fontSize * 1.4} showEnglish={false} big />
+        <button className="display-exit" onClick={closeDisplay} aria-label={t('exitDisplay')}>
           ✕
         </button>
-        {listening && <span className="display-dot" title="Escuchando" />}
+        {listening && <span className="display-dot" title={t('listening')} />}
       </div>
     );
   }
@@ -163,14 +170,28 @@ export default function App() {
       <header>
         <div>
           <h1>Intérprete en Vivo</h1>
-          <p className="subtitle">Live English → Spanish church interpreter · works offline</p>
+          <p className="subtitle">{t('subtitle')}</p>
         </div>
         <div className="badges">
+          <div className="lang-switch" role="group" aria-label={t('language')}>
+            {Object.entries(LANGUAGES).map(([code, name]) => (
+              <button
+                key={code}
+                className={settings.uiLang === code ? 'active' : ''}
+                aria-pressed={settings.uiLang === code}
+                onClick={() => set({ uiLang: code })}
+                lang={code}
+              >
+                {name}
+              </button>
+            ))}
+          </div>
           <ModelBadge
-            label="Speech"
+            t={t}
+            label={t('speech')}
             state={settings.engine === 'vosk' ? it.speechModel : it.speechModel === 'error' ? 'error' : 'ready'}
           />
-          <ModelBadge label="Translation" state={it.translationModel.state} progress={it.translationModel} />
+          <ModelBadge t={t} label={t('translation')} state={it.translationModel.state} progress={it.translationModel} />
         </div>
       </header>
 
@@ -180,7 +201,7 @@ export default function App() {
           onClick={listening ? it.stop : it.start}
           disabled={it.status === 'loading'}
         >
-          {it.status === 'loading' ? 'Loading models…' : listening ? '■ Stop' : '● Start interpreting'}
+          {it.status === 'loading' ? t('loadingModels') : listening ? t('stop') : t('start')}
         </button>
         <div className="meter" aria-hidden>
           <div style={{ width: `${Math.round(it.level * 100)}%` }} />
@@ -192,20 +213,24 @@ export default function App() {
             set({ speak: !settings.speak });
           }}
           aria-pressed={settings.speak}
-          title="Read the Spanish translation out loud"
+          title={t('voiceTitle')}
         >
-          {settings.speak ? '🔊 Voice on' : '🔇 Voice off'}
+          {settings.speak ? t('voiceOn') : t('voiceOff')}
         </button>
-        <button onClick={openDisplay}>⛶ Display mode</button>
-        <button onClick={it.clear}>Clear</button>
-        <button onClick={() => it.prepare()} disabled={it.status !== 'idle'} title="Download models now so it works without internet">
-          ⤓ Prepare for offline
+        <button onClick={openDisplay}>{t('displayMode')}</button>
+        <button onClick={it.clear}>{t('clear')}</button>
+        <button onClick={() => it.prepare()} disabled={it.status !== 'idle'} title={t('prepareTitle')}>
+          {t('prepare')}
         </button>
       </section>
 
-      {it.error && <div className="error">{it.error}</div>}
+      {it.error && (
+        <div className="error">
+          {[it.error.code && t(it.error.code), it.error.detail].filter(Boolean).join(' — ')}
+        </div>
+      )}
 
-      <Captions lines={it.lines} live={it.live} fontSize={settings.fontSize} showEnglish={settings.showEnglish} />
+      <Captions t={t} lines={it.lines} live={it.live} fontSize={settings.fontSize} showEnglish={settings.showEnglish} />
 
       <form
         className="test"
@@ -218,42 +243,42 @@ export default function App() {
         <input
           value={testText}
           onChange={(e) => setTestText(e.target.value)}
-          placeholder="Test without a microphone: type English here and press Enter"
-          aria-label="Test text"
+          placeholder={t('testPlaceholder')}
+          aria-label={t('testLabel')}
         />
-        <button type="submit">Send</button>
+        <button type="submit">{t('send')}</button>
       </form>
 
       <details className="settings">
-        <summary>Settings</summary>
+        <summary>{t('settings')}</summary>
         <div className="grid">
           <label>
-            Speech recognition
+            {t('engine')}
             <select value={settings.engine} onChange={(e) => set({ engine: e.target.value })} disabled={listening}>
               {Object.entries(ENGINES).map(([k, E]) => (
                 <option key={k} value={k} disabled={E.supported === false}>
-                  {E.label}
+                  {t('engine' + k[0].toUpperCase() + k.slice(1))}
                 </option>
               ))}
             </select>
           </label>
           <label>
-            Microphone
+            {t('microphone')}
             <select value={settings.deviceId} onChange={(e) => set({ deviceId: e.target.value })} disabled={listening}>
-              <option value="">Default microphone</option>
+              <option value="">{t('defaultMic')}</option>
               {mics.map((m) => (
                 <option key={m.deviceId} value={m.deviceId}>
-                  {m.label || 'Microphone'}
+                  {m.label || t('mic')}
                 </option>
               ))}
             </select>
           </label>
           <label>
-            Translation mode
+            {t('mode')}
             <select value={settings.mode} onChange={(e) => set({ mode: e.target.value })} disabled={listening}>
-              {Object.entries(MODES).map(([k, label]) => (
+              {Object.keys(MODES).map((k) => (
                 <option key={k} value={k}>
-                  {label}
+                  {t('mode' + k[0].toUpperCase() + k.slice(1))}
                 </option>
               ))}
             </select>
@@ -261,36 +286,36 @@ export default function App() {
           {settings.mode !== 'fragment' && (
             <label className="check">
               <input type="checkbox" checked={settings.liturgy} onChange={(e) => set({ liturgy: e.target.checked })} />
-              Use standard Spanish wording for the Lord&apos;s Prayer, Gloria, Doxology and Apostles&apos; Creed
+              {t('liturgy')}
             </label>
           )}
           <label>
-            Pace
+            {t('pace')}
             <select value={settings.pace} onChange={(e) => set({ pace: e.target.value })}>
-              {Object.entries(PACES).map(([k, p]) => (
+              {Object.keys(PACES).map((k) => (
                 <option key={k} value={k}>
-                  {p.label}
+                  {t('pace' + k[0].toUpperCase() + k.slice(1))}
                 </option>
               ))}
             </select>
           </label>
           <label className="check">
             <input type="checkbox" checked={settings.speak} onChange={(e) => set({ speak: e.target.checked })} />
-            Speak Spanish aloud (use headphones or a transmitter to avoid feedback)
+            {t('speakAloud')}
           </label>
           <label>
-            Spanish voice
+            {t('voice')}
             <select value={settings.voiceURI} onChange={(e) => set({ voiceURI: e.target.value })}>
-              <option value="">Automatic</option>
+              <option value="">{t('automatic')}</option>
               {voices.map((v) => (
                 <option key={v.voiceURI} value={v.voiceURI}>
-                  {v.name} ({v.lang}){v.localService ? ' · offline' : ''}
+                  {v.name} ({v.lang}){v.localService ? t('offlineVoice') : ''}
                 </option>
               ))}
             </select>
           </label>
           <label>
-            Voice speed: {settings.rate.toFixed(1)}×
+            {t('voiceSpeed', { rate: settings.rate.toFixed(1) })}
             <input
               type="range"
               min="0.7"
@@ -301,7 +326,7 @@ export default function App() {
             />
           </label>
           <label>
-            Text size: {settings.fontSize}px
+            {t('textSize', { size: settings.fontSize })}
             <input
               type="range"
               min="20"
@@ -317,18 +342,16 @@ export default function App() {
               checked={settings.showEnglish}
               onChange={(e) => set({ showEnglish: e.target.checked })}
             />
-            Show English transcript
+            {t('showEnglish')}
           </label>
         </div>
         <p className="stats">
-          Last translation: {it.stats.ms} ms{it.stats.merged > 1 ? ` (caught up ${it.stats.merged} chunks)` : ''}
+          {t('lastTranslation', { ms: it.stats.ms })}
+          {it.stats.merged > 1 ? t('caughtUp', { n: it.stats.merged }) : ''}
         </p>
       </details>
 
-      <footer>
-        Everything runs on this device — no audio leaves it with the offline engine. Speech: Vosk (WebAssembly).
-        Translation: OPUS-MT English→Spanish (ONNX Runtime Web). Voice: your device's text-to-speech.
-      </footer>
+      <footer>{t('footer')}</footer>
     </div>
   );
 }

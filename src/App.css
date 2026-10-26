@@ -71,6 +71,28 @@ h1 {
   flex-wrap: wrap;
 }
 
+.lang-switch {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.lang-switch button {
+  border: 0;
+  border-radius: 0;
+  padding: 4px 12px;
+  font-size: 0.85rem;
+  background: var(--panel);
+  color: var(--muted);
+}
+
+.lang-switch button.active {
+  background: var(--accent);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
 .badge {
   font-size: 0.8rem;
   padding: 4px 10px;
