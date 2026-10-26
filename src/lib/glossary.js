@@ -342,7 +342,9 @@ export function restoreGlossary(text, direction) {
           const p = prep || (det && /^(al)$/i.test(det) ? 'a' : det && /^del$/i.test(det) ? 'de' : '');
           phrase = `${p ? `${matchCase(p, prep || det)} ` : ''}${outputOf(term, 'es')}`;
         } else if (det) {
-          phrase = `${prep ? `${prep} ` : ''}${spanishWithArticle(det, term)}`;
+          phrase = `${prep ? `${prep} ` : ''}${spanishWithArticle(det, term)}`.replace(/\b(a|de) el /i, (m, p) =>
+            p.toLowerCase() === 'a' ? 'al ' : 'del ',
+          );
         } else if (prep === 'a' && HAVE_VERB.test(all.slice(0, start).trimEnd())) {
           // "tendremos a Zorxano": the model took the made-up name for a
           // person; with "have/hold" verbs it means "a/an".
@@ -372,6 +374,43 @@ export function restoreGlossary(text, direction) {
     for (const [re, rep] of EN_POST) t = t.replace(re, rep);
   }
   return t;
+}
+
+// Starts of multi-word phrases (glossary terms and rewrites), per source
+// language, e.g. "praise", "praise and", "praise and worship".
+const REWRITE_STARTS = {
+  'en-es': ['can', 'can i', 'can i get', 'can i get an', 'could i', 'could i get', 'fixing', 'fixin', 'walk', 'walk the',
+    'turn', 'turn with', 'turn in', 'turn in your', 'turn to', 'turn to your', 'come', 'come down', 'coming', 'lord', 'got', 'get'],
+  'es-en': ['quien', 'quien dice', 'pasen', 'pase', 'pasa'],
+};
+function phrasePrefixes(direction) {
+  const [from] = direction.split('-');
+  const norm = (x) => x.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/'/g, '');
+  const prefixes = new Set(REWRITE_STARTS[direction]);
+  for (const term of TERMS) {
+    if (term.only && term.only !== direction) continue;
+    for (const p of term[from]) {
+      if (typeof p !== 'string') continue;
+      const words = norm(p).split(/\s+/);
+      for (let k = 1; k < words.length; k++) prefixes.add(words.slice(0, k).join(' '));
+    }
+  }
+  return prefixes;
+}
+const PREFIXES = { 'en-es': phrasePrefixes('en-es'), 'es-en': phrasePrefixes('es-en') };
+
+/**
+ * How many of the last words could be the start of a glossary phrase that
+ * hasn't been fully heard yet ("...thank the praise and worship" before
+ * "team"). Live translation waits for those words, so the whole term can be
+ * replaced; otherwise half of it gets translated and spoken first.
+ */
+export function pendingPhraseWords(words, direction) {
+  const norm = (x) => x.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9ñ ]/g, '');
+  for (let k = Math.min(4, words.length); k >= 1; k--) {
+    if (PREFIXES[direction].has(words.slice(-k).map(norm).join(' '))) return k;
+  }
+  return 0;
 }
 
 /** Placeholder names, so callers can tell them apart from real words. */

@@ -18,8 +18,11 @@ export class SourceTracker {
    * @param {(s: {segId, text, final, start}) => void} opts.onSegment
    * @param {(word: string, index: number) => void} [opts.onStable] called
    *   once for every word as it becomes stable (index within the utterance)
+   * @param {(words: string[]) => number} [opts.holdTail] how many trailing
+   *   stable words to hold back for now (e.g. the start of a glossary phrase)
    */
-  constructor({ maxSegmentWords = 30, quietMs = 600, onSegment, onStable } = {}) {
+  constructor({ maxSegmentWords = 30, quietMs = 600, onSegment, onStable, holdTail } = {}) {
+    this.holdTail = holdTail || (() => 0);
     this.maxSegmentWords = maxSegmentWords;
     this.quietMs = quietMs;
     this.onSegment = onSegment || (() => {});
@@ -128,7 +131,8 @@ export class SourceTracker {
       this._send(this.words.slice(this.segStart, this.segStart + cut).join(' '), true);
       this.segStart += cut;
     }
-    const text = this.words.slice(this.segStart, this.stable).join(' ');
+    const ready = this.words.slice(this.segStart, this.stable);
+    const text = ready.slice(0, ready.length - this.holdTail(ready)).join(' ');
     if (text && text !== this.lastSent) this._send(text, false);
   }
 

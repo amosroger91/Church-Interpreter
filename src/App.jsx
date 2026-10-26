@@ -1,158 +1,70 @@
-import { useEffect, useRef, useState } from 'react';
-import { ENGINES, MODES, PACES, useInterpreter } from './useInterpreter.js';
-import { listVoices } from './lib/speaker.js';
+import { useEffect, useState } from 'react';
+import { useInterpreter } from './useInterpreter.js';
 import { LANGUAGES, translator } from './i18n.js';
+import { useMicrophones, useSettings, useVoices, useWakeLock } from './hooks.js';
+import { Icon } from './components/Icons.jsx';
+import { Captions, DisplayCaptions, Verse } from './components/Captions.jsx';
+import { SettingsSheet } from './components/SettingsSheet.jsx';
 
-const DEFAULTS = {
-  // The interface is Spanish unless someone picks English with the switch.
-  uiLang: 'es',
-  uiLangChosen: false,
-  // Who is speaking: English speaker translated to Spanish, or the reverse.
-  direction: 'en-es',
-  engine: 'vosk',
-  mode: 'simul',
-  liturgy: true,
-  pace: 'balanced',
-  speak: true,
-  voices: { es: '', en: '' },
-  rate: 1.1,
-  fontSize: 44,
-  deviceId: '',
-  showSource: true,
-};
+const LANG_NAME = { en: 'English', es: 'Español' };
 
-function loadSettings() {
-  try {
-    const saved = JSON.parse(localStorage.getItem('interpreter-settings') || '{}');
-    // Earlier versions saved an auto-detected language; only keep a choice.
-    if (!saved.uiLangChosen) delete saved.uiLang;
-    // Older versions: a single (Spanish) voice and "show English".
-    if (saved.voiceURI !== undefined) saved.voices = { es: saved.voiceURI, en: '' };
-    if (saved.showEnglish !== undefined) saved.showSource = saved.showEnglish;
-    delete saved.voiceURI;
-    delete saved.showEnglish;
-    return { ...DEFAULTS, ...saved };
-  } catch {
-    return DEFAULTS;
+/** One combined indicator for both models (speech + translation). */
+function Status({ t, it, engine, onRetry }) {
+  const speech = engine === 'vosk' ? it.speechModel : it.speechModel === 'error' ? 'error' : 'ready';
+  const tr = it.translationModel;
+  let state = 'ready';
+  let text = t('statusReady');
+  let pct = null;
+  if (speech === 'error' || tr.state === 'error') {
+    state = 'error';
+    text = t('statusError');
+  } else if (it.status === 'listening') {
+    state = 'live';
+    text = t('listening');
+  } else if (speech !== 'ready' || tr.state !== 'ready') {
+    state = 'loading';
+    pct = tr.total ? Math.round((100 * tr.loaded) / tr.total) : null;
+    text = pct != null && pct < 100 ? t('statusDownloading', { pct }) : t('statusPreparing');
   }
-}
-
-function useWakeLock(active) {
-  useEffect(() => {
-    if (!active || !('wakeLock' in navigator)) return undefined;
-    let lock = null;
-    let cancelled = false;
-    const acquire = () =>
-      navigator.wakeLock.request('screen').then((l) => {
-        if (cancelled) l.release();
-        else lock = l;
-      }, () => {});
-    acquire();
-    const onVisible = () => document.visibilityState === 'visible' && acquire();
-    document.addEventListener('visibilitychange', onVisible);
-    return () => {
-      cancelled = true;
-      document.removeEventListener('visibilitychange', onVisible);
-      lock?.release();
-    };
-  }, [active]);
-}
-
-function useVoices(lang) {
-  const [voices, setVoices] = useState(() => listVoices(lang));
-  useEffect(() => {
-    if (typeof speechSynthesis === 'undefined') return undefined;
-    const update = () => setVoices(listVoices(lang));
-    update();
-    speechSynthesis.addEventListener('voiceschanged', update);
-    return () => speechSynthesis.removeEventListener('voiceschanged', update);
-  }, [lang]);
-  return voices;
-}
-
-function useMicrophones(refreshKey) {
-  const [mics, setMics] = useState([]);
-  useEffect(() => {
-    navigator.mediaDevices?.enumerateDevices?.().then(
-      (d) => setMics(d.filter((x) => x.kind === 'audioinput' && x.deviceId)),
-      () => {},
-    );
-  }, [refreshKey]);
-  return mics;
-}
-
-function ModelBadge({ t, label, state, progress }) {
-  let text = t('notLoaded');
-  if (state === 'loading') {
-    text = progress?.total
-      ? t('downloading', { pct: Math.round((100 * progress.loaded) / progress.total) })
-      : t('loading');
-  } else if (state === 'ready') text = t('ready');
-  else if (state === 'error') text = t('failed');
   return (
-    <span className={`badge badge-${state}`}>
-      {label}: {text}
-    </span>
-  );
-}
-
-function Captions({ t, lines, live, fontSize, showSource, sourceLang, big }) {
-  const endRef = useRef(null);
-  useEffect(() => {
-    endRef.current?.scrollIntoView({ block: 'end' });
-  }, [lines, live]);
-  const visible = big ? lines.slice(-6) : lines;
-  return (
-    <div className={`captions ${big ? 'captions-big' : ''}`} style={{ fontSize }} aria-live="polite">
-      {visible.length === 0 && !live.pending && (
-        <p className="placeholder">{t('placeholder')}</p>
+    <div className={`status status-${state}`} role="status">
+      <span className="status-dot" aria-hidden="true" />
+      <span className="status-text">{text}</span>
+      {state === 'error' && (
+        <button className="status-retry" onClick={onRetry} disabled={it.status !== 'idle'}>
+          <Icon name="refresh" size={16} /> {t('retryDownload')}
+        </button>
       )}
-      {visible.map((l, i) => (
-        <div key={l.id} className={`line ${i === visible.length - 1 ? 'line-current' : ''} ${l.liturgy ? 'line-liturgy' : ''}`}>
-          <p className="out" lang={l.lang}>
-            {l.out}
-            {l.tentative && !l.done && <span className="tentative"> {l.tentative}</span>}
-          </p>
-          {showSource && !big && (
-            <p className="src" lang={l.liturgy ? undefined : sourceLang}>
-              {l.src}
-            </p>
-          )}
-        </div>
-      ))}
-      {showSource && (live.committed || live.pending) && (
-        <p className="live-src" lang={sourceLang}>
-          <span>{live.committed}</span> <span className="pending">{live.pending}</span>
-        </p>
+      {state === 'loading' && pct != null && (
+        <span className="status-bar" aria-hidden="true">
+          <span style={{ width: `${pct}%` }} />
+        </span>
       )}
-      <div ref={endRef} />
     </div>
   );
 }
 
 export default function App() {
-  const [settings, setSettings] = useState(loadSettings);
+  const [settings, set] = useSettings();
   const [display, setDisplay] = useState(() => new URLSearchParams(location.search).has('display'));
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [typing, setTyping] = useState(false);
   const [testText, setTestText] = useState('');
-  const set = (patch) => setSettings((s) => ({ ...s, ...patch }));
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('interpreter-settings', JSON.stringify(settings));
-    } catch {
-      // storage unavailable
-    }
-  }, [settings]);
 
   const it = useInterpreter(settings);
   const t = translator(settings.uiLang);
+  const voices = useVoices(it.to);
+  const mics = useMicrophones(it.status);
+  const listening = it.status === 'listening';
+  const busy = it.status === 'loading';
+  useWakeLock(listening);
 
   useEffect(() => {
     document.documentElement.lang = settings.uiLang;
   }, [settings.uiLang]);
 
   // Download the models as soon as the page opens (and again when the
-  // engine changes or the connection comes back), so the interpreter is
+  // direction changes or the connection comes back), so the interpreter is
   // ready, and cached for offline use, before anyone presses Start.
   const { prepare } = it;
   useEffect(() => {
@@ -166,12 +78,6 @@ export default function App() {
   useEffect(() => {
     navigator.storage?.persist?.().catch(() => {});
   }, []);
-
-  const downloadFailed = it.speechModel === 'error' || it.translationModel.state === 'error';
-  const voices = useVoices(it.to);
-  const mics = useMicrophones(it.status);
-  const listening = it.status === 'listening';
-  useWakeLock(listening);
 
   useEffect(() => {
     const onKey = (e) => e.key === 'Escape' && setDisplay(false);
@@ -190,229 +96,180 @@ export default function App() {
 
   if (display) {
     return (
-      <div className="display" onDoubleClick={closeDisplay}>
-        <Captions t={t} lines={it.lines} live={it.live} fontSize={settings.fontSize * 1.4} showSource={false} big />
-        <button className="display-exit" onClick={closeDisplay} aria-label={t('exitDisplay')}>
-          ✕
-        </button>
-        {listening && <span className="display-dot" title={t('listening')} />}
-      </div>
+      <DisplayCaptions
+        t={t}
+        lines={it.lines}
+        fontSize={settings.fontSize}
+        listening={listening}
+        uiLang={settings.uiLang}
+        onExit={closeDisplay}
+      />
     );
   }
 
+  const swapDirection = () => set({ direction: it.direction === 'en-es' ? 'es-en' : 'en-es' });
+  const level = Math.round(it.level * 100);
+
   return (
-    <div className="app">
-      <header>
-        <div>
-          <h1>Intérprete en Vivo</h1>
-          <p className="subtitle">{t('subtitle')}</p>
+    <div className={`app ${listening ? 'is-listening' : ''}`}>
+      <header className="topbar">
+        <div className="brand">
+          <img src="icon.svg" alt="" width="34" height="34" />
+          <div>
+            <h1>Intérprete en Vivo</h1>
+            <p className="tagline">{t('tagline')}</p>
+          </div>
         </div>
-        <div className="badges">
+        <div className="topbar-actions">
           <div className="lang-switch" role="group" aria-label={t('language')}>
             {Object.entries(LANGUAGES).map(([code, name]) => (
               <button
                 key={code}
-                className={settings.uiLang === code ? 'active' : ''}
+                className={settings.uiLang === code ? 'is-active' : ''}
                 aria-pressed={settings.uiLang === code}
                 onClick={() => set({ uiLang: code, uiLangChosen: true })}
                 lang={code}
               >
-                {name}
+                {name.slice(0, 2).toUpperCase()}
               </button>
             ))}
           </div>
-          <ModelBadge
-            t={t}
-            label={t('speech')}
-            state={settings.engine === 'vosk' ? it.speechModel : it.speechModel === 'error' ? 'error' : 'ready'}
-          />
-          <ModelBadge t={t} label={t('translation')} state={it.translationModel.state} progress={it.translationModel} />
+          <button className="icon-button" onClick={() => setSettingsOpen(true)} aria-label={t('settings')} title={t('settings')}>
+            <Icon name="settings" />
+          </button>
         </div>
       </header>
 
-      <section className="direction" role="group" aria-label={t('direction')}>
-        {['en-es', 'es-en'].map((d) => (
-          <button
-            key={d}
-            className={it.direction === d ? 'active' : ''}
-            aria-pressed={it.direction === d}
-            disabled={listening || it.status === 'loading'}
-            onClick={() => set({ direction: d })}
-          >
-            {t(d === 'en-es' ? 'dirEnEs' : 'dirEsEn')}
-          </button>
-        ))}
-      </section>
-
-      <section className="controls">
-        <button
-          className={`primary ${listening ? 'stop' : ''}`}
-          onClick={listening ? it.stop : it.start}
-          disabled={it.status === 'loading'}
-        >
-          {it.status === 'loading' ? t('loadingModels') : listening ? t('stop') : t('start')}
-        </button>
-        <div className="meter" aria-hidden>
-          <div style={{ width: `${Math.round(it.level * 100)}%` }} />
-        </div>
-        <button
-          className={`toggle ${settings.speak ? 'on' : ''}`}
-          onClick={() => {
-            if (!settings.speak) it.speaker.unlock();
-            set({ speak: !settings.speak });
-          }}
-          aria-pressed={settings.speak}
-          title={t('voiceTitle')}
-        >
-          {settings.speak ? t('voiceOn') : t('voiceOff')}
-        </button>
-        <button onClick={openDisplay}>{t('displayMode')}</button>
-        <button onClick={it.clear}>{t('clear')}</button>
-        {downloadFailed && (
-          <button onClick={() => it.prepare()} disabled={it.status !== 'idle'}>
-            {t('retryDownload')}
-          </button>
-        )}
-      </section>
-
-      {it.error && (
-        <div className="error">
-          {[it.error.code && t(it.error.code), it.error.detail].filter(Boolean).join(' — ')}
-        </div>
-      )}
-
-      <Captions
-        t={t}
-        lines={it.lines}
-        live={it.live}
-        fontSize={settings.fontSize}
-        showSource={settings.showSource}
-        sourceLang={it.from}
-      />
-
-      <form
-        className="test"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (testText.trim()) it.simulate(testText);
-          setTestText('');
-        }}
-      >
-        <input
-          value={testText}
-          onChange={(e) => setTestText(e.target.value)}
-          placeholder={t(it.from === 'en' ? 'testPlaceholder' : 'testPlaceholderEs')}
-          aria-label={t('testLabel')}
-        />
-        <button type="submit">{t('send')}</button>
-      </form>
-
-      <details className="settings">
-        <summary>{t('settings')}</summary>
-        <div className="grid">
-          <label>
-            {t('engine')}
-            <select value={settings.engine} onChange={(e) => set({ engine: e.target.value })} disabled={listening}>
-              {Object.entries(ENGINES).map(([k, E]) => (
-                <option key={k} value={k} disabled={E.supported === false}>
-                  {t('engine' + k[0].toUpperCase() + k.slice(1))}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            {t('microphone')}
-            <select value={settings.deviceId} onChange={(e) => set({ deviceId: e.target.value })} disabled={listening}>
-              <option value="">{t('defaultMic')}</option>
-              {mics.map((m) => (
-                <option key={m.deviceId} value={m.deviceId}>
-                  {m.label || t('mic')}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            {t('mode')}
-            <select value={settings.mode} onChange={(e) => set({ mode: e.target.value })} disabled={listening}>
-              {Object.keys(MODES).map((k) => (
-                <option key={k} value={k}>
-                  {t('mode' + k[0].toUpperCase() + k.slice(1))}
-                </option>
-              ))}
-            </select>
-          </label>
-          {settings.mode !== 'fragment' && (
-            <label className="check">
-              <input type="checkbox" checked={settings.liturgy} onChange={(e) => set({ liturgy: e.target.checked })} />
-              {t('liturgy')}
-            </label>
-          )}
-          <label>
-            {t('pace')}
-            <select value={settings.pace} onChange={(e) => set({ pace: e.target.value })}>
-              {Object.keys(PACES).map((k) => (
-                <option key={k} value={k}>
-                  {t('pace' + k[0].toUpperCase() + k.slice(1))}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="check">
-            <input type="checkbox" checked={settings.speak} onChange={(e) => set({ speak: e.target.checked })} />
-            {t('speakAloud')}
-          </label>
-          <label>
-            {t(it.to === 'es' ? 'voiceEs' : 'voiceEn')}
-            <select
-              value={settings.voices?.[it.to] || ''}
-              onChange={(e) => set({ voices: { ...settings.voices, [it.to]: e.target.value } })}
+      <main className="stage">
+        <div className="stage-head">
+          <div className="route" role="group" aria-label={t('direction')}>
+            <span className="route-lang" lang={it.from}>
+              <small>{t('speaking')}</small>
+              {LANG_NAME[it.from]}
+            </span>
+            <button
+              className="route-swap"
+              onClick={swapDirection}
+              disabled={listening || busy}
+              aria-label={t('swapDirection')}
+              title={t('swapDirection')}
             >
-              <option value="">{t('automatic')}</option>
-              {voices.map((v) => (
-                <option key={v.voiceURI} value={v.voiceURI}>
-                  {v.name} ({v.lang}){v.localService ? t('offlineVoice') : ''}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            {t('voiceSpeed', { rate: settings.rate.toFixed(1) })}
-            <input
-              type="range"
-              min="0.7"
-              max="1.8"
-              step="0.1"
-              value={settings.rate}
-              onChange={(e) => set({ rate: Number(e.target.value) })}
-            />
-          </label>
-          <label>
-            {t('textSize', { size: settings.fontSize })}
-            <input
-              type="range"
-              min="20"
-              max="96"
-              step="2"
-              value={settings.fontSize}
-              onChange={(e) => set({ fontSize: Number(e.target.value) })}
-            />
-          </label>
-          <label className="check">
-            <input
-              type="checkbox"
-              checked={settings.showSource}
-              onChange={(e) => set({ showSource: e.target.checked })}
-            />
-            {t('showSource')}
-          </label>
+              <Icon name="swap" />
+            </button>
+            <span className="route-lang" lang={it.to}>
+              <small>{t('interpreting')}</small>
+              {LANG_NAME[it.to]}
+            </span>
+          </div>
+          <Status t={t} it={it} engine={settings.engine} onRetry={() => it.prepare()} />
         </div>
-        <p className="stats">
-          {t('lastTranslation', { ms: it.stats.ms })}
-          {it.stats.merged > 1 ? t('caughtUp', { n: it.stats.merged }) : ''}
-        </p>
-      </details>
 
-      <footer>{t('footer')}</footer>
+        {it.error && (
+          <div className="alert" role="alert">
+            {[it.error.code && t(it.error.code), it.error.detail].filter(Boolean).join(' — ')}
+          </div>
+        )}
+
+        <div className="caption-card">
+          <div className="caption-tools">
+            <button className="chip-button" onClick={openDisplay} title={t('displayModeHint')}>
+              <Icon name="screen" size={18} /> {t('displayMode')}
+            </button>
+            {it.lines.length > 0 && (
+              <button className="chip-button" onClick={it.clear}>
+                <Icon name="trash" size={18} /> {t('clear')}
+              </button>
+            )}
+          </div>
+          <Captions
+            t={t}
+            lines={it.lines}
+            live={it.live}
+            fontSize={settings.fontSize}
+            showSource={settings.showSource}
+            sourceLang={it.from}
+            fromName={LANG_NAME[it.from]}
+            toName={LANG_NAME[it.to]}
+          />
+        </div>
+
+        <Verse lang={settings.uiLang} />
+      </main>
+
+      <footer className="dock">
+        {typing && (
+          <form
+            className="type-bar"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (testText.trim()) it.simulate(testText);
+              setTestText('');
+            }}
+          >
+            <input
+              autoFocus
+              value={testText}
+              onChange={(e) => setTestText(e.target.value)}
+              placeholder={t(it.from === 'en' ? 'testPlaceholder' : 'testPlaceholderEs')}
+              aria-label={t('testLabel')}
+              lang={it.from}
+            />
+            <button type="submit" className="icon-button" aria-label={t('send')}>
+              <Icon name="send" />
+            </button>
+          </form>
+        )}
+        <div className="dock-row">
+          <button
+            className={`dock-button ${settings.speak ? 'is-on' : ''}`}
+            onClick={() => {
+              if (!settings.speak) it.speaker.unlock();
+              set({ speak: !settings.speak });
+            }}
+            aria-pressed={settings.speak}
+            title={t('voiceTitle')}
+          >
+            <Icon name={settings.speak ? 'volume' : 'mute'} />
+            <span>{settings.speak ? t('voiceOnShort') : t('voiceOffShort')}</span>
+          </button>
+
+          <button
+            className={`mic ${listening ? 'is-live' : ''}`}
+            onClick={listening ? it.stop : it.start}
+            disabled={busy}
+            aria-label={listening ? t('stop') : t('start')}
+            style={{ '--level': level / 100 }}
+          >
+            <span className="mic-ring" aria-hidden="true" />
+            <Icon name={listening ? 'stop' : 'mic'} size={34} />
+          </button>
+
+          <button
+            className={`dock-button ${typing ? 'is-on' : ''}`}
+            onClick={() => setTyping((v) => !v)}
+            aria-pressed={typing}
+            title={t('typeToTestHint')}
+          >
+            <Icon name="keyboard" />
+            <span>{t('typeToTest')}</span>
+          </button>
+        </div>
+        <p className="dock-hint" aria-live="polite">
+          {busy ? t('loadingModels') : listening ? t('tapToStop') : t('tapToStart')}
+        </p>
+      </footer>
+
+      <SettingsSheet
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        t={t}
+        it={it}
+        settings={settings}
+        set={set}
+        voices={voices}
+        mics={mics}
+        listening={listening}
+      />
     </div>
   );
 }

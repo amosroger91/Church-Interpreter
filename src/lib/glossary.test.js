@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { applyGlossary, restoreGlossary, placeholderName, isPlaceholder, TERMS } from './glossary.js';
+import { applyGlossary, restoreGlossary, placeholderName, isPlaceholder, pendingPhraseWords, TERMS } from './glossary.js';
 
 // Stand-in for the translation model: placeholders pass through unchanged.
 const ph = (en, dir = 'en-es') => placeholderName(TERMS.findIndex((t) => t.en.includes(en)), dir);
@@ -81,5 +81,18 @@ describe('glossary (Spanish -> English)', () => {
     expect(restoreGlossary('Join us for the cult on Sunday. Who says amen?.', 'es-en')).toBe(
       'Join us for the service on Sunday. Can I get an amen?',
     );
+  });
+});
+
+describe('pendingPhraseWords', () => {
+  it('holds back words that may start a church term', () => {
+    const w = (s) => s.split(' ');
+    expect(pendingPhraseWords(w("let's thank the praise and worship"), 'en-es')).toBe(3);
+    expect(pendingPhraseWords(w('we will meet in the fellowship'), 'en-es')).toBe(1);
+    expect(pendingPhraseWords(w('we will meet in the park'), 'en-es')).toBe(0);
+    expect(pendingPhraseWords(w('gracias al grupo de'), 'es-en')).toBe(2);
+  });
+  it('joins de/a with the article', () => {
+    expect(restoreGlossary(`después de el ${ph('worship service')}`, 'en-es')).toBe('después del culto');
   });
 });

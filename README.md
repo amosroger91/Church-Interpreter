@@ -54,6 +54,16 @@ Spirit*, biblical names and book names are capitalized
 (`src/lib/text.js`). That way the translator renders them as *Dios, Jesús,
 Señor, Espíritu Santo* rather than as common nouns.
 
+## The interface
+
+- **Top bar:** app name, interface language (ES/EN, Spanish by default) and ⚙ settings.
+- **Route:** who is speaking and which language they are interpreted into; the round button swaps the languages.
+- **Status:** one indicator for both models (getting ready / downloading % / ready / listening).
+- **Caption panel:** large serif captions, newest line brightest, uncertain words dimmed, what was said in small text underneath. Buttons for full-screen **Display** (projector) and **Clear**.
+- **Verse of the day:** one quiet line under the captions (King James / Reina-Valera 1960), also shown faintly on the projector screen before anything is said.
+- **Bottom bar:** the microphone button (its ring follows the sound level while listening), voice on/off, and ⌨ to test by typing.
+- **Settings panel:** listening (engine, microphone), translation (pace, mode, prayers and creeds), voice (read aloud, voice, speed) and display (text size, show original).
+
 ## Using it on Sunday
 
 1. Open the site once **with internet** and press **Prepare for offline**. This

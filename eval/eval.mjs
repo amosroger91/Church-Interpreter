@@ -19,6 +19,7 @@ import { SIMUL_PACES, SimulTranslator } from '../src/lib/simul.js';
 import { StreamChunker } from '../src/lib/chunker.js';
 import { SourceTracker } from '../src/lib/sourceTracker.js';
 import { DIRECTIONS, finishTarget, prepareSource, tidyTarget } from '../src/lib/languages.js';
+import { pendingPhraseWords } from '../src/lib/glossary.js';
 import { chrF } from './metrics.mjs';
 
 const args = process.argv.slice(2);
@@ -99,6 +100,7 @@ function simul(opts) {
     const tracker = new SourceTracker({
       maxSegmentWords: opts.maxSegmentWords ?? 30,
       onSegment: (s) => queue.push(s),
+      holdTail: (w) => pendingPhraseWords(w, direction),
     });
     const committedAfterWord = [];
     const flush = async () => {

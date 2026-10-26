@@ -6,6 +6,7 @@ import { SIMUL_PACES } from './lib/simul.js';
 import { Translator } from './lib/translator.js';
 import { Speaker } from './lib/speaker.js';
 import { DIRECTIONS, prepareSource, tidyTarget } from './lib/languages.js';
+import { pendingPhraseWords } from './lib/glossary.js';
 import { VoskEngine } from './lib/asr/vosk.js';
 import { WebSpeechEngine } from './lib/asr/webSpeech.js';
 
@@ -136,6 +137,7 @@ export function useInterpreter(settings) {
       onStable: (word, index) => {
         if (liturgyOnRef.current) matcher.feed(word, index);
       },
+      holdTail: (words) => pendingPhraseWords(words, direction),
     });
     // Known prayers and creeds are shown with their standard wording in the
     // other language instead of being machine-translated.
