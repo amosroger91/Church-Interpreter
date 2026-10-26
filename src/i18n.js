@@ -116,11 +116,6 @@ const STRINGS = {
 
 export const LANGUAGES = { en: 'English', es: 'Español' };
 
-export function defaultLanguage() {
-  const langs = typeof navigator === 'undefined' ? [] : navigator.languages || [navigator.language];
-  return langs.some((l) => l?.toLowerCase().startsWith('es')) ? 'es' : 'en';
-}
-
 export function translator(lang) {
   const table = STRINGS[lang] || STRINGS.en;
   return (key, vars = {}) =>

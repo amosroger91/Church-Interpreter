@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { ENGINES, MODES, PACES, useInterpreter } from './useInterpreter.js';
 import { listSpanishVoices } from './lib/speaker.js';
-import { LANGUAGES, defaultLanguage, translator } from './i18n.js';
+import { LANGUAGES, translator } from './i18n.js';
 
 const DEFAULTS = {
-  uiLang: defaultLanguage(),
+  // The interface is Spanish unless someone picks English with the switch.
+  uiLang: 'es',
+  uiLangChosen: false,
   engine: 'vosk',
   mode: 'simul',
   liturgy: true,
@@ -19,7 +21,10 @@ const DEFAULTS = {
 
 function loadSettings() {
   try {
-    return { ...DEFAULTS, ...JSON.parse(localStorage.getItem('interpreter-settings') || '{}') };
+    const saved = JSON.parse(localStorage.getItem('interpreter-settings') || '{}');
+    // Earlier versions saved an auto-detected language; only keep a choice.
+    if (!saved.uiLangChosen) delete saved.uiLang;
+    return { ...DEFAULTS, ...saved };
   } catch {
     return DEFAULTS;
   }
@@ -179,7 +184,7 @@ export default function App() {
                 key={code}
                 className={settings.uiLang === code ? 'active' : ''}
                 aria-pressed={settings.uiLang === code}
-                onClick={() => set({ uiLang: code })}
+                onClick={() => set({ uiLang: code, uiLangChosen: true })}
                 lang={code}
               >
                 {name}
