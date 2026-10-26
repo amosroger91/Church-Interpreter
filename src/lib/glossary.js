@@ -47,6 +47,8 @@ export const TERMS = [
 
   // Fellowship and food
   { en: ['potluck', 'potluck dinner', 'potluck lunch', 'covered dish dinner', 'dinner on the grounds', 'fellowship meal', 'fellowship dinner', 'church dinner'], es: ['convivio', 'comida compartida'], g: 'm', n: 's' },
+  { en: ['pews'], es: ['bancas', 'bancos'], g: 'f', n: 'p' },
+  { en: ['pew'], es: ['banca'], g: 'f', n: 's' },
   { en: ['fellowship hall'], es: ['salón de compañerismo', 'salón social'], g: 'm', n: 's' },
 
   // Ministries and groups
