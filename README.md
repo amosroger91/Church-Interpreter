@@ -26,12 +26,20 @@ microphone ─▶ speech recognition ─▶ stream chunker ─▶ translation �
 | Spanish voice | The device's built-in text-to-speech (`speechSynthesis`). Voices marked "offline" in settings are local. | ✅ (with a local Spanish voice) |
 
 **Streaming without waiting for the sentence to end.** The recognizer
-revises its guess as more audio arrives. The chunker (`src/lib/chunker.js`)
-treats a word as stable once two consecutive guesses agree on it. Stable
-words are sent in short chunks, cut before natural phrase boundaries ("and",
-"because", "that", …) where possible. If translations fall behind, the chunks
-waiting in line are merged into one request, and the Spanish voice speeds up a
-little to catch up.
+revises its guess as more audio arrives. A word counts as stable once two
+consecutive guesses agree on it (`src/lib/sourceTracker.js`).
+
+The default **sentence-aware** mode (`src/lib/simul.js`) re-translates the
+whole sentence so far every time a stable word arrives. The Spanish already
+shown and spoken is forced as the start of each new translation, so the model
+continues the sentence coherently instead of translating disconnected pieces.
+New Spanish words are committed (shown in full and spoken) only once
+consecutive translations agree on them. The not-yet-certain tail is shown
+dimmed. This is the *local agreement* approach from simultaneous-translation
+research.
+
+The **classic fragments** mode (`src/lib/chunker.js`) translates each 3–7
+word chunk independently. It has the least delay but loses context.
 
 **Church vocabulary.** Before translation, words like *God, Jesus, Lord, Holy
 Spirit*, biblical names and book names are capitalized
@@ -62,17 +70,29 @@ npm install
 npm run fetch-models   # optional: download models into public/models/
 npm run dev            # http://localhost:5173
 npm test
+npm run eval           # quality/latency benchmark (needs fetch-models)
 npm run build          # static site in dist/
 ```
 
 If you skip `fetch-models`, the app downloads the models from Hugging Face and
 the vosk-browser demo site the first time instead.
 
+## Measuring quality
+
+`eval/eval.mjs` replays the sermon-style passages in `eval/passages.json`
+word by word, as a streaming recognizer would deliver them, through each
+translation strategy. It scores the result against human Spanish references
+(chrF), and reports lag (English words heard but not yet reflected in
+committed Spanish), repeated words, and model time per call. Add your own
+church's passages to the JSON file to tune it for your services. The
+*Translation quality benchmark* workflow runs it in CI.
+
 ## Deploying to GitHub Pages
 
 The `.github/workflows/deploy.yml` workflow tests, downloads the models,
-builds and deploys on every push to `main`. One-time setup: **Settings → Pages
-→ Build and deployment → Source: GitHub Actions**.
+builds, and publishes the site to the `gh-pages` branch on every push to
+`main`. One-time setup: **Settings → Pages → Build and deployment → Deploy
+from a branch → `gh-pages` / root**.
 
 ## Limitations
 

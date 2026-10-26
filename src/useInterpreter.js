@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StreamChunker } from './lib/chunker.js';
+import { SourceTracker } from './lib/sourceTracker.js';
 import { Translator } from './lib/translator.js';
 import { Speaker } from './lib/speaker.js';
 import { prepareEnglish, tidySpanish } from './lib/text.js';
@@ -19,7 +20,17 @@ export const PACES = {
   accurate: { label: 'Accurate', minWords: 5, maxWords: 11, maxWaitMs: 2000 },
 };
 
+// How the English is fed to the translator.
+export const MODES = {
+  simul: 'Sentence-aware (recommended)',
+  fragment: 'Classic fragments',
+};
+
 const MAX_LINES = 200;
+
+function trimLines(lines) {
+  return lines.length > MAX_LINES ? lines.slice(-MAX_LINES) : lines;
+}
 
 export function useInterpreter(settings) {
   const [status, setStatus] = useState('idle'); // idle | loading | listening
@@ -48,8 +59,29 @@ export function useInterpreter(settings) {
       new Translator({
         onStatus: (s) => setTranslationModel(s),
         onResult: (r) => {
-          const es = tidySpanish(r.text, { final: r.final });
           setStats({ ms: r.ms, merged: r.merged });
+          if (r.kind === 'step') {
+            // Sentence-aware mode: one caption line per segment, with the
+            // committed Spanish plus a tentative tail that may still change.
+            const key = 's' + r.segId;
+            setLines((prev) => {
+              const idx = prev.findLastIndex((l) => l.key === key);
+              const cur = idx >= 0 ? { ...prev[idx] } : { id: ++lineIdRef.current, key, es: '', en: '', done: false };
+              cur.es = [cur.es, r.committed].filter(Boolean).join(' ');
+              cur.tentative = r.tentative;
+              cur.en = r.english;
+              cur.done = r.final;
+              if (idx >= 0) {
+                const next = prev.slice();
+                next[idx] = cur;
+                return next;
+              }
+              return trimLines([...prev, cur]);
+            });
+            if (r.committed) speaker.speak(r.committed);
+            return;
+          }
+          const es = tidySpanish(r.text, { final: r.final });
           setLines((prev) => {
             let next = prev;
             const last = next[next.length - 1];
@@ -63,7 +95,7 @@ export function useInterpreter(settings) {
             cur.en = [cur.en, r.english].filter(Boolean).join(' ');
             if (r.final) cur.done = true;
             next[next.length - 1] = cur;
-            return next.length > MAX_LINES ? next.slice(-MAX_LINES) : next;
+            return trimLines(next);
           });
           if (es) speaker.speak(es);
         },
@@ -84,34 +116,56 @@ export function useInterpreter(settings) {
     [translator],
   );
 
+  const tracker = useMemo(
+    () =>
+      new SourceTracker({
+        onSegment: ({ segId, text, final, start }) => {
+          translator.step({ segId, text: prepareEnglish(text, { start }), final, start });
+        },
+      }),
+    [translator],
+  );
+
   useEffect(() => {
     chunker.setOptions(PACES[settings.pace] || PACES.balanced);
   }, [chunker, settings.pace]);
+
+  const simul = settings.mode !== 'fragment';
+  const liveText = useCallback(
+    () =>
+      simul
+        ? { committed: tracker.sentText, pending: tracker.pendingText }
+        : { committed: committedRef.current, pending: chunker.pendingText },
+    [simul, tracker, chunker],
+  );
 
   // Release slow speech even when the recognizer isn't sending updates.
   useEffect(() => {
     if (status !== 'listening') return undefined;
     const t = setInterval(() => {
-      chunker.tick(Date.now());
-      setLive({ committed: committedRef.current, pending: chunker.pendingText });
+      if (simul) tracker.tick(Date.now());
+      else chunker.tick(Date.now());
+      setLive(liveText());
     }, 200);
     return () => clearInterval(t);
-  }, [status, chunker]);
+  }, [status, simul, tracker, chunker, liveText]);
 
   const onPartial = useCallback(
     (text) => {
-      chunker.update(text, Date.now());
-      setLive({ committed: committedRef.current, pending: chunker.pendingText });
+      if (simul) tracker.update(text, Date.now());
+      else chunker.update(text, Date.now());
+      setLive(liveText());
     },
-    [chunker],
+    [simul, tracker, chunker, liveText],
   );
 
   const onFinal = useCallback(
     (text) => {
-      chunker.finalize(text, Date.now());
+      if (simul) tracker.finalize(text);
+      else chunker.finalize(text, Date.now());
       setLive({ committed: '', pending: '' });
     },
-    [chunker],
+    [simul, tracker, chunker],
   );
 
   const loadSpeech = useCallback(async (engineKey) => {
@@ -179,10 +233,11 @@ export function useInterpreter(settings) {
     setLevel(0);
     // Flush whatever was still pending.
     setTimeout(() => {
+      if (tracker.words.length) tracker.finalize(tracker.words.join(' '));
       if (chunker.pendingText) chunker.finalize(chunker.pendingText);
       setLive({ committed: '', pending: '' });
     }, 600);
-  }, [chunker]);
+  }, [chunker, tracker]);
 
   const clear = useCallback(() => {
     setLines([]);

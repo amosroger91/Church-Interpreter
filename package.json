@@ -10,7 +10,8 @@
     "test": "vitest run",
     "fetch-models": "node scripts/fetch-models.mjs",
     "predev": "node scripts/copy-ort.mjs",
-    "prebuild": "node scripts/copy-ort.mjs"
+    "prebuild": "node scripts/copy-ort.mjs",
+    "eval": "node eval/eval.mjs"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.3.1",

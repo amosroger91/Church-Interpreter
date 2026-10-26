@@ -47,3 +47,37 @@ describe('Translator', () => {
     ]);
   });
 });
+
+describe('Translator.step', () => {
+  it('keeps only the newest version of a segment while busy, never dropping finals', async () => {
+    const { Translator } = await import('./translator.js');
+    const results = [];
+    const t = new Translator({ onResult: (r) => results.push(r) });
+    await t.load();
+    const w = FakeWorker.last;
+    const answer = (committed) => {
+      const req = w.requests.shift();
+      w.onmessage({ data: { type: 'result', id: req.id, committed, tentative: '', ms: 1 } });
+    };
+
+    t.step({ segId: 0, text: 'the lord', final: false, start: true });
+    t.step({ segId: 0, text: 'the lord is', final: false, start: true });
+    t.step({ segId: 0, text: 'the lord is my', final: false, start: true });
+    expect(w.requests.map((r) => r.text)).toEqual(['the lord']);
+    answer('');
+    // The intermediate "the lord is" was superseded.
+    expect(w.requests.map((r) => [r.type, r.text])).toEqual([['step', 'the lord is my']]);
+    t.step({ segId: 0, text: 'the lord is my shepherd', final: false, start: true });
+    t.step({ segId: 0, text: 'the lord is my shepherd i shall not want', final: true, start: true });
+    t.step({ segId: 1, text: 'amen', final: false, start: true });
+    answer('el señor');
+    expect(w.requests.map((r) => [r.text, r.final])).toEqual([['the lord is my shepherd i shall not want', true]]);
+    answer('es mi pastor, nada me faltará.');
+    expect(w.requests.map((r) => [r.segId, r.text])).toEqual([[1, 'amen']]);
+    expect(results.map((r) => [r.segId, r.committed, r.final])).toEqual([
+      [0, '', false],
+      [0, 'el señor', false],
+      [0, 'es mi pastor, nada me faltará.', true],
+    ]);
+  });
+});

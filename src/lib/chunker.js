@@ -9,7 +9,7 @@
 // natural phrase boundary ("and", "because", "that", ...) so each piece
 // translates well on its own.
 
-const BOUNDARY_WORDS = new Set([
+export const BOUNDARY_WORDS = new Set([
   'and', 'but', 'or', 'so', 'because', 'that', 'which', 'who', 'whom',
   'whose', 'when', 'where', 'while', 'if', 'then', 'for', 'until', 'unless',
   'although', 'though', 'since', 'as', 'after', 'before', 'yet', 'nor',
@@ -20,7 +20,7 @@ export function splitWords(text) {
   return (text || '').trim().split(/\s+/).filter(Boolean);
 }
 
-function normWord(w) {
+export function normWord(w) {
   return w.toLowerCase().replace(/[^\p{L}\p{N}']/gu, '');
 }
 

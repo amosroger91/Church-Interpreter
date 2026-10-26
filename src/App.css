@@ -178,6 +178,12 @@ button.primary.stop {
   font-weight: 600;
 }
 
+/* Spanish that may still change as the sentence continues (not spoken yet). */
+.tentative {
+  font-weight: 400;
+  opacity: 0.45;
+}
+
 .en,
 .live-en {
   font-size: 0.4em;

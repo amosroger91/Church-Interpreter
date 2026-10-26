@@ -1,12 +1,14 @@
 // Main-thread side of the translation worker. Keeps latency bounded: only
-// one chunk is translated at a time, and any chunks that arrive meanwhile
-// are merged into a single follow-up request instead of queueing up.
+// one request runs at a time, and requests that pile up meanwhile are
+// combined (fragments are merged; for a sentence being re-translated, only
+// the newest version is kept) instead of queueing up.
 import { MODELS } from './config.js';
 
 export class Translator {
-  constructor({ onResult, onStatus } = {}) {
+  constructor({ onResult, onStatus, simulOptions } = {}) {
     this.onResult = onResult || (() => {});
     this.onStatus = onStatus || (() => {});
+    this.simulOptions = simulOptions || {};
     this.worker = null;
     this.ready = false;
     this.busy = false;
@@ -30,8 +32,9 @@ export class Translator {
           this.ready = true;
           this.onStatus({ state: 'ready' });
           resolve();
+          this._pump();
         } else if (m.type === 'result') {
-          this._finish(m.text, m.ms);
+          this._finish(m);
         } else if (m.type === 'error') {
           if (!this.ready) {
             this.onStatus({ state: 'error', error: m.error });
@@ -40,7 +43,7 @@ export class Translator {
             reject(new Error(m.error));
           } else {
             this.onStatus({ state: 'ready', error: m.error });
-            this._finish('', 0);
+            this._finish({ text: '', committed: '', tentative: '', ms: 0 });
           }
         }
       };
@@ -49,20 +52,33 @@ export class Translator {
         type: 'load',
         baseUrl: new URL(import.meta.env.BASE_URL, location.href).href,
         modelId: MODELS.translation.id,
+        simulOptions: this.simulOptions,
       });
     });
     return this.readyPromise;
   }
 
   /**
-   * Queue an English chunk. `meta` is passed back with the result.
-   * Chunks waiting behind a running translation are merged together.
+   * Classic mode: queue an independent English chunk. `meta` is passed back
+   * with the result. Chunks waiting behind a running translation are merged.
    */
   translate(text, meta = {}) {
-    if (!text.trim()) {
-      if (meta.final) this.pending.push({ text: '', meta });
+    if (text.trim() || meta.final) this.pending.push({ kind: 'fragment', text: text.trim(), meta });
+    this._pump();
+  }
+
+  /**
+   * Sentence-aware mode: the English of segment `segId` so far. Only the
+   * newest non-final version of a segment is kept while waiting.
+   */
+  step({ segId, text, final, start }) {
+    if (final) {
+      this.pending = this.pending.filter((j) => !(j.kind === 'step' && j.segId === segId && !j.final));
+      this.pending.push({ kind: 'step', segId, text, final, start });
     } else {
-      this.pending.push({ text, meta });
+      const queued = this.pending.find((j) => j.kind === 'step' && j.segId === segId && !j.final);
+      if (queued) queued.text = text;
+      else this.pending.push({ kind: 'step', segId, text, final, start });
     }
     this._pump();
   }
@@ -73,29 +89,52 @@ export class Translator {
 
   _pump() {
     if (this.busy || !this.ready || this.pending.length === 0) return;
-    const batch = this.pending;
-    this.pending = [];
-    const text = batch.map((b) => b.text).filter(Boolean).join(' ');
-    const meta = {
-      start: Boolean(batch[0].meta.start),
-      final: batch.some((b) => b.meta.final),
-      english: text,
-      merged: batch.length,
-    };
-    if (!text) {
-      this.onResult({ text: '', ...meta, ms: 0 });
-      return this._pump();
+    const job = this.pending[0];
+    let request;
+    if (job.kind === 'step') {
+      this.pending.shift();
+      this.inflight = { kind: 'step', segId: job.segId, final: job.final, start: job.start, english: job.text };
+      request = { type: 'step', segId: job.segId, text: job.text, final: job.final };
+    } else {
+      // Merge all fragments waiting at the front of the queue.
+      let n = 0;
+      while (n < this.pending.length && this.pending[n].kind === 'fragment') n++;
+      const batch = this.pending.splice(0, n);
+      const text = batch.map((b) => b.text).filter(Boolean).join(' ');
+      this.inflight = {
+        kind: 'fragment',
+        start: Boolean(batch[0].meta.start),
+        final: batch.some((b) => b.meta.final),
+        english: text,
+        merged: batch.length,
+      };
+      if (!text) {
+        const meta = this.inflight;
+        this.inflight = null;
+        this.onResult({ text: '', ...meta, ms: 0 });
+        return this._pump();
+      }
+      request = { type: 'translate', text };
     }
     this.busy = true;
-    this.inflight = meta;
-    this.worker.postMessage({ type: 'translate', id: this.nextId++, text });
+    this.worker.postMessage({ ...request, id: this.nextId++ });
   }
 
-  _finish(text, ms) {
+  _finish(m) {
     const meta = this.inflight;
     this.busy = false;
     this.inflight = null;
-    if (meta) this.onResult({ text, ms, ...meta });
+    if (meta?.kind === 'step') {
+      this.onResult({
+        ...meta,
+        committed: m.committed || '',
+        tentative: m.tentative || '',
+        ms: m.ms,
+        merged: 1,
+      });
+    } else if (meta) {
+      this.onResult({ ...meta, text: m.text || '', ms: m.ms });
+    }
     this._pump();
   }
 }

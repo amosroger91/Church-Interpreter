@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { ENGINES, PACES, useInterpreter } from './useInterpreter.js';
+import { ENGINES, MODES, PACES, useInterpreter } from './useInterpreter.js';
 import { listSpanishVoices } from './lib/speaker.js';
 
 const DEFAULTS = {
   engine: 'vosk',
+  mode: 'simul',
   pace: 'balanced',
   speak: true,
   voiceURI: '',
@@ -92,7 +93,10 @@ function Captions({ lines, live, fontSize, showEnglish, big }) {
       )}
       {visible.map((l, i) => (
         <div key={l.id} className={`line ${i === visible.length - 1 ? 'line-current' : ''}`}>
-          <p className="es" lang="es">{l.es}</p>
+          <p className="es" lang="es">
+            {l.es}
+            {l.tentative && !l.done && <span className="tentative"> {l.tentative}</span>}
+          </p>
           {showEnglish && !big && <p className="en" lang="en">{l.en}</p>}
         </div>
       ))}
@@ -233,15 +237,27 @@ export default function App() {
             </select>
           </label>
           <label>
-            Pace (delay vs. accuracy)
-            <select value={settings.pace} onChange={(e) => set({ pace: e.target.value })}>
-              {Object.entries(PACES).map(([k, p]) => (
+            Translation mode
+            <select value={settings.mode} onChange={(e) => set({ mode: e.target.value })} disabled={listening}>
+              {Object.entries(MODES).map(([k, label]) => (
                 <option key={k} value={k}>
-                  {p.label} — {p.minWords}–{p.maxWords} words per chunk
+                  {label}
                 </option>
               ))}
             </select>
           </label>
+          {settings.mode === 'fragment' && (
+            <label>
+              Pace (delay vs. accuracy)
+              <select value={settings.pace} onChange={(e) => set({ pace: e.target.value })}>
+                {Object.entries(PACES).map(([k, p]) => (
+                  <option key={k} value={k}>
+                    {p.label} — {p.minWords}–{p.maxWords} words per chunk
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <label className="check">
             <input type="checkbox" checked={settings.speak} onChange={(e) => set({ speak: e.target.checked })} />
             Speak Spanish aloud (use headphones or a transmitter to avoid feedback)
