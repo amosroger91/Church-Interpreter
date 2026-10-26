@@ -1,0 +1,24 @@
+name: Placeholder probe
+
+# Checks which made-up placeholder names the translation models copy intact
+# (see eval/probe-placeholders.mjs). Run manually.
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Cache models
+        uses: actions/cache@v4
+        with:
+          path: public/models
+          key: models-${{ hashFiles('scripts/fetch-models.mjs') }}
+      - run: npm run fetch-models
+      - run: node eval/probe-placeholders.mjs 2>&1 | grep -v WARNING

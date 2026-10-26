@@ -16,7 +16,9 @@ export const DIRECTIONS = {
     from: 'es',
     to: 'en',
     translationModel: 'Xenova/opus-mt-es-en',
-    holdWords: ['a', 'an', 'the'],
+    holdWords: ['a', 'an', 'the',
+      // Fixed up afterwards ("go to the front" -> "come forward").
+      'go', 'pass', 'come', 'move'],
   },
 };
 

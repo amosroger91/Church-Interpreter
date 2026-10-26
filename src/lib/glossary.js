@@ -37,7 +37,7 @@ export const TERMS = [
   { en: ['youth service'], es: ['culto de jóvenes'], g: 'm', n: 's' },
   { en: ['prayer meeting', 'prayer service'], es: ['culto de oración', 'reunión de oración'], g: 'm', n: 's' },
   { en: ['all night prayer', 'all-night prayer', 'prayer vigil'], es: ['vigilia'], g: 'f', n: 's' },
-  { en: ['worship service', 'church service', 'sunday service', { re: '(the|this|our|today\'?s|tonight\'?s|next|every)\\s+service', keep: 1 }], es: ['culto'], g: 'm', n: 's' },
+  { enOut: 'service', en: ['worship service', 'church service', 'sunday service', { re: '(the|this|our|today\'?s|tonight\'?s|next|every)\\s+service', keep: 1 }], es: ['culto'], g: 'm', n: 's' },
   { en: ['worship services', 'church services', { re: '(the|our|these)\\s+services', keep: 1 }], es: ['cultos'], g: 'm', n: 'p' },
   { en: ['altar call'], es: ['llamado al altar', 'llamamiento'], g: 'm', n: 's' },
   { en: ['revival services', 'revival meetings', 'revival meeting', 'tent revival', 'revival week'], es: ['campaña de avivamiento', 'campaña evangelística'], g: 'f', n: 's' },
@@ -200,7 +200,7 @@ const ES_POST = [
 ];
 
 const EN_POST = [
-  [/\bwho says amen\b\??/gi, 'Can I get an amen?'],
+  [/\bwho says amen\b[?.!]*/gi, 'Can I get an amen?'],
   [/\bcults?\b/gi, (m) => (m.toLowerCase().endsWith('s') ? 'services' : 'service')],
   [/\b(go|pass|come|move)\s+(to\s+the\s+front|forward|ahead)\b/gi, 'come forward'],
   [/\b(brother|sister)\s+([A-Z])/g, (m, w, c) => `${w[0].toUpperCase()}${w.slice(1)} ${c}`],

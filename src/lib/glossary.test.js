@@ -78,7 +78,7 @@ describe('glossary (Spanish -> English)', () => {
     expect(restoreGlossary(`We thank the ${ph('praise team')} and a ${ph('usher')}.`, 'es-en')).toBe(
       'We thank the praise team and an usher.',
     );
-    expect(restoreGlossary('Join us for the cult on Sunday. Who says amen?', 'es-en')).toBe(
+    expect(restoreGlossary('Join us for the cult on Sunday. Who says amen?.', 'es-en')).toBe(
       'Join us for the service on Sunday. Can I get an amen?',
     );
   });
